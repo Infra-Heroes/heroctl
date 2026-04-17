@@ -82,7 +82,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			// 7. Build image: {registry}/{orgName}/{projectName}:{imageTag}
 			image := fmt.Sprintf("%s/%s/%s:%s", registry, org.Name, project.Name, imageTag)
 			fmt.Printf("Building %s...\n", image)
-			buildCmd := exec.CommandContext(ctx, "docker", "build", "-t", image, ".")
+			buildCmd := exec.CommandContext(ctx, "docker", "build", "--platform", "linux/amd64", "-t", image, ".")
 			buildCmd.Stdout = os.Stdout
 			buildCmd.Stderr = os.Stderr
 			if err := buildCmd.Run(); err != nil {
