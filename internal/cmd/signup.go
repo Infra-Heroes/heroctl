@@ -45,12 +45,17 @@ func signupCmd() *cobra.Command {
 			}
 			password := strings.TrimSpace(string(passwordBytes))
 
+			fmt.Print("Invite code: ")
+			inviteCode, _ := r.ReadString('\n')
+			inviteCode = strings.TrimSpace(inviteCode)
+
 			c := client.New(build.ServerURL, "", "", nil)
 			resp, err := c.Signup(cmd.Context(), client.SignupRequest{
-				Email:    email,
-				Username: username,
-				Password: password,
-				OrgName:  orgName,
+				Email:      email,
+				Username:   username,
+				Password:   password,
+				OrgName:    orgName,
+				InviteCode: inviteCode,
 			})
 			if err != nil {
 				return fmt.Errorf("signup: %w", err)
@@ -58,7 +63,7 @@ func signupCmd() *cobra.Command {
 
 			fmt.Printf("\nAccount created successfully.\n")
 			fmt.Printf("Org:     %s (ID: %d)\n", resp.Org.Name, resp.Org.ID)
-			fmt.Printf("Project: %s (ID: %d, VNI: %d)\n", resp.Project.Name, resp.Project.ID, resp.Project.VNI)
+			fmt.Printf("Project: %s (ID: %s, VNI: %d)\n", resp.Project.Name, resp.Project.ID, resp.Project.VNI)
 			fmt.Println("\nRun 'heroctl login' to authenticate.")
 			return nil
 		},

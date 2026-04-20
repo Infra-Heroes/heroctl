@@ -3,9 +3,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
+	"syscall"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func secretsCmd(deps *Deps) *cobra.Command {
@@ -15,14 +18,22 @@ func secretsCmd(deps *Deps) *cobra.Command {
 	}
 
 	set := &cobra.Command{
-		Use:   "set <key> <value>",
+		Use:   "set <key>",
 		Short: "Set or update a secret",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := deps.Client.SetSecret(cmd.Context(), args[0], args[1]); err != nil {
+			key := args[0]
+			fmt.Printf("Enter value for %s: ", key)
+			valueBytes, err := term.ReadPassword(int(syscall.Stdin))
+			fmt.Println()
+			if err != nil {
+				return fmt.Errorf("read value: %w", err)
+			}
+			value := strings.TrimSpace(string(valueBytes))
+			if err := deps.Client.SetSecret(cmd.Context(), key, value); err != nil {
 				return fmt.Errorf("set secret: %w", err)
 			}
-			fmt.Printf("Secret %q saved.\n", args[0])
+			fmt.Printf("Secret %q saved.\n", key)
 			return nil
 		},
 	}
@@ -36,7 +47,7 @@ func secretsCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("list secrets: %w", err)
 			}
 			if len(secrets) == 0 {
-				fmt.Println("No secrets. Add one with: heroctl secrets set <key> <value>")
+				fmt.Println("No secrets. Add one with: heroctl secrets set <key>")
 				return nil
 			}
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)

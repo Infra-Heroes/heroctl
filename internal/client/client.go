@@ -34,7 +34,6 @@ func New(serverURL, authDomain, clientID string, tok *auth.Token) *Client {
 }
 
 // Org represents a hero-api organisation.
-// Field names match the PascalCase JSON produced by sqlc's Org struct (no json tags).
 type Org struct {
 	ID        int64  `json:"ID"`
 	ZitadelID string `json:"ZitadelID"`
@@ -50,9 +49,10 @@ type Credits struct {
 }
 
 // Project represents a hero-api project.
-// Field names match the lowercase JSON produced by the custom projectResp struct.
+// ID is the UUID string — the canonical project identifier.
+// VNI is the VXLAN network identifier (separate from project identity).
 type Project struct {
-	ID        int64  `json:"id"`
+	ID        string `json:"id"`
 	OrgID     int64  `json:"org_id"`
 	Name      string `json:"name"`
 	VNI       int    `json:"vni"`
@@ -60,30 +60,32 @@ type Project struct {
 }
 
 // Deployment represents a deployment returned from list/get endpoints.
-// Field names match the PascalCase JSON from dbsqlc.Deployment (no json tags).
+// ID is the UUID — the canonical deployment identifier (not shown to users).
+// Users interact with deployments by AppName within a project.
 type Deployment struct {
-	ID        int64  `json:"ID"`
-	ProjectID int64  `json:"ProjectID"`
+	ID        string `json:"ID"`
+	ProjectID string `json:"ProjectID"`
+	AppName   string `json:"AppName"`
 	Image     string `json:"Image"`
 	Status    string `json:"Status"`
 	CPU       int32  `json:"Cpu"`
 	MemoryMB  int32  `json:"MemoryMb"`
 	Port      int32  `json:"Port"`
+	Hostname  string `json:"Hostname"`
 	CreatedAt string `json:"CreatedAt"`
 }
 
 // DeploymentCreated is the response from POST /api/v1/projects/{id}/deployments.
-// Uses lowercase snake_case keys (returned as a map[string]any from the handler).
 type DeploymentCreated struct {
-	ID         int64  `json:"id"`
-	ProjectID  int64  `json:"project_id"`
+	ID         string `json:"id"`
+	ProjectID  string `json:"project_id"`
+	AppName    string `json:"app_name"`
 	Image      string `json:"image"`
 	Status     string `json:"status"`
 	NomadJobID string `json:"nomad_job_id"`
 	CPU        int64  `json:"cpu"`
 	MemoryMB   int64  `json:"memory_mb"`
 	Port       int64  `json:"port"`
-	AppName    string `json:"app_name"`
 	Hostname   string `json:"hostname"`
 }
 
@@ -123,6 +125,7 @@ type SignupRequest struct {
 	Password    string `json:"password"`
 	OrgName     string `json:"org_name"`
 	ProjectName string `json:"project_name,omitempty"`
+	InviteCode  string `json:"invite_code"`
 }
 
 // SignupResponse is the response from POST /api/v1/signup.
@@ -138,8 +141,6 @@ func (c *Client) Signup(ctx context.Context, req SignupRequest) (*SignupResponse
 }
 
 // GetOrg fetches the authenticated user's org.
-// The URL path parameter is ignored by the server (it uses JWT claims), so we
-// send "me" as a conventional placeholder.
 func (c *Client) GetOrg(ctx context.Context) (*Org, error) {
 	var out Org
 	return &out, c.do(ctx, http.MethodGet, "/api/v1/orgs/me", nil, &out)
@@ -175,15 +176,15 @@ func (c *Client) CreateProject(ctx context.Context, name string) (*Project, erro
 	return &out, c.do(ctx, http.MethodPost, "/api/v1/projects", map[string]string{"name": name}, &out)
 }
 
-// DeleteProject deletes a project by its internal ID.
-func (c *Client) DeleteProject(ctx context.Context, projectID int64) error {
-	return c.do(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, nil)
+// DeleteProject deletes a project by its UUID.
+func (c *Client) DeleteProject(ctx context.Context, projectID string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/projects/"+projectID, nil, nil)
 }
 
 // ListDeployments returns all deployments for a project.
-func (c *Client) ListDeployments(ctx context.Context, projectID int64) ([]Deployment, error) {
+func (c *Client) ListDeployments(ctx context.Context, projectID string) ([]Deployment, error) {
 	var out []Deployment
-	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("/api/v1/projects/%d/deployments", projectID), nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/api/v1/projects/"+projectID+"/deployments", nil, &out); err != nil {
 		return nil, err
 	}
 	if out == nil {
@@ -192,20 +193,19 @@ func (c *Client) ListDeployments(ctx context.Context, projectID int64) ([]Deploy
 	return out, nil
 }
 
-// GetDeployment fetches a single deployment.
-func (c *Client) GetDeployment(ctx context.Context, projectID, deploymentID int64) (*Deployment, error) {
+// GetDeployment fetches the most recent deployment for the named app within a project.
+func (c *Client) GetDeployment(ctx context.Context, projectID, appName string) (*Deployment, error) {
 	var out Deployment
 	return &out, c.do(ctx, http.MethodGet,
-		fmt.Sprintf("/api/v1/projects/%d/deployments/%d", projectID, deploymentID),
+		"/api/v1/projects/"+projectID+"/deployments/"+appName,
 		nil, &out)
 }
 
-// GetDeploymentStatus returns the live Nomad job status for a deployment.
-// Possible values: "pending", "running", "dead".
-func (c *Client) GetDeploymentStatus(ctx context.Context, projectID, deploymentID int64) (string, error) {
+// GetDeploymentStatus returns the live Nomad job status for the active deployment of an app.
+func (c *Client) GetDeploymentStatus(ctx context.Context, projectID, appName string) (string, error) {
 	var out DeploymentStatus
 	if err := c.do(ctx, http.MethodGet,
-		fmt.Sprintf("/api/v1/projects/%d/deployments/%d/status", projectID, deploymentID),
+		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/status",
 		nil, &out); err != nil {
 		return "", err
 	}
@@ -213,18 +213,41 @@ func (c *Client) GetDeploymentStatus(ctx context.Context, projectID, deploymentI
 }
 
 // CreateDeployment submits a new deployment.
-func (c *Client) CreateDeployment(ctx context.Context, projectID int64, req CreateDeploymentRequest) (*DeploymentCreated, error) {
+func (c *Client) CreateDeployment(ctx context.Context, projectID string, req CreateDeploymentRequest) (*DeploymentCreated, error) {
 	var out DeploymentCreated
 	return &out, c.do(ctx, http.MethodPost,
-		fmt.Sprintf("/api/v1/projects/%d/deployments", projectID),
+		"/api/v1/projects/"+projectID+"/deployments",
 		req, &out)
 }
 
-// StopDeployment stops a running deployment.
-func (c *Client) StopDeployment(ctx context.Context, projectID, deploymentID int64) error {
+// StopDeployment stops the active deployment for the named app within a project.
+func (c *Client) StopDeployment(ctx context.Context, projectID, appName string) error {
 	return c.do(ctx, http.MethodDelete,
-		fmt.Sprintf("/api/v1/projects/%d/deployments/%d", projectID, deploymentID),
+		"/api/v1/projects/"+projectID+"/deployments/"+appName,
 		nil, nil)
+}
+
+// DeleteDeployment hard-purges a deployment (stops if running, then deletes the DB row).
+func (c *Client) DeleteDeployment(ctx context.Context, projectID, appName string) error {
+	return c.do(ctx, http.MethodDelete,
+		"/api/v1/projects/"+projectID+"/deployments/"+appName,
+		nil, nil)
+}
+
+// StartDeployment brings a stopped or failed deployment back online.
+func (c *Client) StartDeployment(ctx context.Context, projectID, appName string) (*DeploymentCreated, error) {
+	var out DeploymentCreated
+	return &out, c.do(ctx, http.MethodPost,
+		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/start",
+		nil, &out)
+}
+
+// RestartDeployment stops a running deployment and immediately re-submits it.
+func (c *Client) RestartDeployment(ctx context.Context, projectID, appName string) (*DeploymentCreated, error) {
+	var out DeploymentCreated
+	return &out, c.do(ctx, http.MethodPost,
+		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/restart",
+		nil, &out)
 }
 
 // SetSecret creates or updates a secret.
@@ -256,7 +279,6 @@ func (c *Client) RegistryCredentials(ctx context.Context) (*RegistryCreds, error
 	return &out, c.do(ctx, http.MethodPost, "/api/v1/registry/credentials", nil, &out)
 }
 
-// do performs an authenticated HTTP request, refreshing the token if needed.
 func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {
 	if err := c.ensureToken(ctx); err != nil {
 		return err
@@ -305,7 +327,6 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 	return nil
 }
 
-// doOpen performs an unauthenticated HTTP request (no token required).
 func (c *Client) doOpen(ctx context.Context, method, path string, body any, out any) error {
 	var bodyReader io.Reader
 	if body != nil {
@@ -349,7 +370,6 @@ func (c *Client) doOpen(ctx context.Context, method, path string, body any, out 
 	return nil
 }
 
-// ensureToken refreshes the access token if it has expired.
 func (c *Client) ensureToken(ctx context.Context) error {
 	if !c.token.IsExpired() {
 		return nil

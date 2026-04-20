@@ -2,9 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
-	"text/tabwriter"
 	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -13,7 +12,6 @@ func projectsCmd(deps *Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "projects",
 		Short: "Manage projects",
-		// Default: list
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return listProjects(cmd, deps)
 		},
@@ -36,29 +34,46 @@ func projectsCmd(deps *Deps) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("create project: %w", err)
 			}
-			fmt.Printf("Project %q created (ID: %d, VNI: %d)\n", p.Name, p.ID, p.VNI)
+			fmt.Printf("Project %q created (ID: %s, VNI: %d)\n", p.Name, p.ID, p.VNI)
+			return nil
+		},
+	}
+
+	get := &cobra.Command{
+		Use:   "get <name>",
+		Short: "Get a project by name",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			p, err := resolveProject(cmd.Context(), deps, args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Name:      %s\n", p.Name)
+			fmt.Printf("ID:        %s\n", p.ID)
+			fmt.Printf("VNI:       %d\n", p.VNI)
+			fmt.Printf("Created:   %s\n", p.CreatedAt)
 			return nil
 		},
 	}
 
 	del := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a project by ID",
+		Use:   "delete <name>",
+		Short: "Delete a project by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := strconv.ParseInt(args[0], 10, 64)
+			p, err := resolveProject(cmd.Context(), deps, args[0])
 			if err != nil {
-				return fmt.Errorf("invalid project ID %q", args[0])
+				return err
 			}
-			if err := deps.Client.DeleteProject(cmd.Context(), id); err != nil {
+			if err := deps.Client.DeleteProject(cmd.Context(), p.ID); err != nil {
 				return fmt.Errorf("delete project: %w", err)
 			}
-			fmt.Printf("Project %d deleted.\n", id)
+			fmt.Printf("Project %q deleted.\n", p.Name)
 			return nil
 		},
 	}
 
-	cmd.AddCommand(list, create, del)
+	cmd.AddCommand(list, create, get, del)
 	return cmd
 }
 
@@ -74,7 +89,7 @@ func listProjects(cmd *cobra.Command, deps *Deps) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ID\tNAME\tVNI\tCREATED")
 	for _, p := range projects {
-		fmt.Fprintf(w, "%d\t%s\t%d\t%s\n", p.ID, p.Name, p.VNI, p.CreatedAt)
+		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", p.ID, p.Name, p.VNI, p.CreatedAt)
 	}
 	return w.Flush()
 }
