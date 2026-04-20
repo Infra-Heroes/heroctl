@@ -39,6 +39,9 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			if err != nil {
 				return err
 			}
+			if err := validateAppName(heroCfg.App.Name); err != nil {
+				return fmt.Errorf("hero.toml: %w", err)
+			}
 
 			// 2. Get org (needed for image namespace).
 			org, err := deps.Client.GetOrg(ctx)
@@ -82,7 +85,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			// 7. Build image: {registry}/{orgName}/{projectName}:{imageTag}
 			image := fmt.Sprintf("%s/%s/%s:%s", registry, org.Name, project.Name, imageTag)
 			fmt.Printf("Building %s...\n", image)
-			buildCmd := exec.CommandContext(ctx, "docker", "build", "-t", image, ".")
+			buildCmd := exec.CommandContext(ctx, "docker", "build", "--platform", "linux/amd64", "-t", image, ".")
 			buildCmd.Stdout = os.Stdout
 			buildCmd.Stderr = os.Stderr
 			if err := buildCmd.Run(); err != nil {
@@ -99,7 +102,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			}
 
 			// 9. Create deployment.
-			fmt.Printf("Deploying to project %q (ID: %d)...\n", project.Name, project.ID)
+			fmt.Printf("Deploying to project %q (ID: %s)...\n", project.Name, project.ID)
 			deployment, err := deps.Client.CreateDeployment(ctx, project.ID, client.CreateDeploymentRequest{
 				AppName:    heroCfg.App.Name,
 				Image:      image,
@@ -113,12 +116,12 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return fmt.Errorf("create deployment: %w", err)
 			}
 
-			fmt.Printf("Deployment created (ID=%d). Waiting for VM to start", deployment.ID)
+			fmt.Printf("Deployment %q submitted. Waiting for VM to start", heroCfg.App.Name)
 
 			deadline := time.Now().Add(deployTimeout)
 			for time.Now().Before(deadline) {
 				time.Sleep(5 * time.Second)
-				nomadStatus, err := deps.Client.GetDeploymentStatus(ctx, project.ID, deployment.ID)
+				nomadStatus, err := deps.Client.GetDeploymentStatus(ctx, project.ID, heroCfg.App.Name)
 				if err != nil {
 					// Transient error — keep trying.
 					fmt.Print(".")
@@ -133,7 +136,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 					return nil
 				case "dead":
 					fmt.Println()
-					return fmt.Errorf("deployment failed — Nomad job is dead; check logs with: heroctl deployments get %s %d", projectName, deployment.ID)
+					return fmt.Errorf("deployment failed — Nomad job is dead; check logs with: heroctl deployments get %s --project %s", heroCfg.App.Name, projectName)
 				default:
 					fmt.Print(".")
 				}

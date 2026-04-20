@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -34,10 +33,10 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 				return nil
 			}
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tSTATUS\tIMAGE\tCPU\tMEM(MB)\tPORT\tCREATED")
+			fmt.Fprintln(w, "APP\tSTATUS\tHOSTNAME\tIMAGE\tCPU\tMEM(MB)\tPORT\tCREATED")
 			for _, d := range ds {
-				fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%d\t%d\t%s\n",
-					d.ID, d.Status, d.Image, d.CPU, d.MemoryMB, d.Port, d.CreatedAt)
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\n",
+					d.AppName, d.Status, d.Hostname, d.Image, d.CPU, d.MemoryMB, d.Port, d.CreatedAt)
 			}
 			return w.Flush()
 		},
@@ -47,24 +46,21 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 
 	var getProject string
 	get := &cobra.Command{
-		Use:   "get <deploymentID>",
-		Short: "Get a single deployment",
+		Use:   "get <app>",
+		Short: "Get the latest deployment for an app",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			project, err := resolveProject(cmd.Context(), deps, getProject)
 			if err != nil {
 				return err
 			}
-			deploymentID, err := strconv.ParseInt(args[0], 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid deployment ID %q", args[0])
-			}
-			d, err := deps.Client.GetDeployment(cmd.Context(), project.ID, deploymentID)
+			d, err := deps.Client.GetDeployment(cmd.Context(), project.ID, args[0])
 			if err != nil {
 				return fmt.Errorf("get deployment: %w", err)
 			}
-			fmt.Printf("ID:        %d\n", d.ID)
+			fmt.Printf("App:       %s\n", d.AppName)
 			fmt.Printf("Status:    %s\n", d.Status)
+			fmt.Printf("Hostname:  %s\n", d.Hostname)
 			fmt.Printf("Image:     %s\n", d.Image)
 			fmt.Printf("CPU:       %d\n", d.CPU)
 			fmt.Printf("Memory MB: %d\n", d.MemoryMB)
@@ -78,28 +74,92 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 
 	var stopProject string
 	stop := &cobra.Command{
-		Use:   "stop <deploymentID>",
-		Short: "Stop a running deployment",
+		Use:   "stop <app>",
+		Short: "Stop the active deployment for an app",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			project, err := resolveProject(cmd.Context(), deps, stopProject)
 			if err != nil {
 				return err
 			}
-			deploymentID, err := strconv.ParseInt(args[0], 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid deployment ID %q", args[0])
-			}
-			if err := deps.Client.StopDeployment(cmd.Context(), project.ID, deploymentID); err != nil {
+			if err := deps.Client.StopDeployment(cmd.Context(), project.ID, args[0]); err != nil {
 				return fmt.Errorf("stop deployment: %w", err)
 			}
-			fmt.Printf("Deployment %d stopped.\n", deploymentID)
+			fmt.Printf("Deployment %q stopped.\n", args[0])
 			return nil
 		},
 	}
 	stop.Flags().StringVar(&stopProject, "project", "", "Project name (required)")
 	_ = stop.MarkFlagRequired("project")
 
-	cmd.AddCommand(list, get, stop)
+	var deleteProject string
+	del := &cobra.Command{
+		Use:   "delete <app>",
+		Short: "Hard-delete a deployment (stops if running, removes all records)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			project, err := resolveProject(cmd.Context(), deps, deleteProject)
+			if err != nil {
+				return err
+			}
+			if err := deps.Client.DeleteDeployment(cmd.Context(), project.ID, args[0]); err != nil {
+				return fmt.Errorf("delete deployment: %w", err)
+			}
+			fmt.Printf("Deployment %s deleted.\n", args[0])
+			return nil
+		},
+	}
+	del.Flags().StringVar(&deleteProject, "project", "", "Project name (required)")
+	_ = del.MarkFlagRequired("project")
+
+	var startProject string
+	start := &cobra.Command{
+		Use:   "start <app>",
+		Short: "Start a stopped or failed deployment",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			project, err := resolveProject(cmd.Context(), deps, startProject)
+			if err != nil {
+				return err
+			}
+			d, err := deps.Client.StartDeployment(cmd.Context(), project.ID, args[0])
+			if err != nil {
+				return fmt.Errorf("start deployment: %w", err)
+			}
+			fmt.Printf("Deployment %q started. Status: %s\n", d.AppName, d.Status)
+			if d.Hostname != "" {
+				fmt.Printf("URL: https://%s\n", d.Hostname)
+			}
+			return nil
+		},
+	}
+	start.Flags().StringVar(&startProject, "project", "", "Project name (required)")
+	_ = start.MarkFlagRequired("project")
+
+	var restartProject string
+	restart := &cobra.Command{
+		Use:   "restart <app>",
+		Short: "Restart a running deployment in-place",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			project, err := resolveProject(cmd.Context(), deps, restartProject)
+			if err != nil {
+				return err
+			}
+			d, err := deps.Client.RestartDeployment(cmd.Context(), project.ID, args[0])
+			if err != nil {
+				return fmt.Errorf("restart deployment: %w", err)
+			}
+			fmt.Printf("Deployment %q restarted. Status: %s\n", d.AppName, d.Status)
+			if d.Hostname != "" {
+				fmt.Printf("URL: https://%s\n", d.Hostname)
+			}
+			return nil
+		},
+	}
+	restart.Flags().StringVar(&restartProject, "project", "", "Project name (required)")
+	_ = restart.MarkFlagRequired("project")
+
+	cmd.AddCommand(list, get, stop, del, start, restart)
 	return cmd
 }
