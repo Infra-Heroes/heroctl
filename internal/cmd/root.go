@@ -59,6 +59,7 @@ func newRootCmd() *cobra.Command {
 		deploymentsCmd(&deps),
 		secretsCmd(&deps),
 		deployCmd(&deps),
+		logsCmd(&deps),
 	)
 
 	return root

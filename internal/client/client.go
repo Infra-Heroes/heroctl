@@ -15,21 +15,23 @@ import (
 
 // Client is a typed HTTP client for the hero-api.
 type Client struct {
-	baseURL    string
-	authDomain string
-	clientID   string
-	httpClient *http.Client
-	token      *auth.Token
+	baseURL      string
+	authDomain   string
+	clientID     string
+	httpClient   *http.Client
+	streamClient *http.Client
+	token        *auth.Token
 }
 
 // New creates a Client with the given server URL, auth domain, and token.
 func New(serverURL, authDomain, clientID string, tok *auth.Token) *Client {
 	return &Client{
-		baseURL:    serverURL,
-		authDomain: authDomain,
-		clientID:   clientID,
-		httpClient: &http.Client{Timeout: 60 * time.Second},
-		token:      tok,
+		baseURL:      serverURL,
+		authDomain:   authDomain,
+		clientID:     clientID,
+		httpClient:   &http.Client{Timeout: 60 * time.Second},
+		streamClient: &http.Client{},
+		token:        tok,
 	}
 }
 
@@ -277,6 +279,32 @@ func (c *Client) DeleteSecret(ctx context.Context, key string) error {
 func (c *Client) RegistryCredentials(ctx context.Context) (*RegistryCreds, error) {
 	var out RegistryCreds
 	return &out, c.do(ctx, http.MethodPost, "/api/v1/registry/credentials", nil, &out)
+}
+
+// StreamLogs opens a streaming connection to the logs endpoint and returns the
+// response body. The caller must close it. follow=true tails live output.
+func (c *Client) StreamLogs(ctx context.Context, projectID, appName string, follow bool) (io.ReadCloser, error) {
+	if err := c.ensureToken(ctx); err != nil {
+		return nil, err
+	}
+	path := fmt.Sprintf("%s/api/v1/projects/%s/deployments/%s/logs", c.baseURL, projectID, appName)
+	if follow {
+		path += "?follow=true"
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token.AccessToken)
+	resp, err := c.streamClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("logs: status %d", resp.StatusCode)
+	}
+	return resp.Body, nil
 }
 
 func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {
