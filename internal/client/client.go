@@ -37,11 +37,13 @@ func New(serverURL, authDomain, clientID string, tok *auth.Token) *Client {
 
 // Org represents a hero-api organisation.
 type Org struct {
-	ID        int64  `json:"ID"`
-	ZitadelID string `json:"ZitadelID"`
-	Name      string `json:"Name"`
-	VmCap     int32  `json:"VmCap"`
-	CreatedAt string `json:"CreatedAt"`
+	ID          int64  `json:"ID"`
+	ZitadelID   string `json:"ZitadelID"`
+	Name        string `json:"Name"`
+	VmCap       int32  `json:"VmCap"`
+	RunningVMs  int64  `json:"RunningVMs"`
+	MaxProjects int32  `json:"MaxProjects"`
+	CreatedAt   string `json:"CreatedAt"`
 }
 
 // Credits is the response from GET /api/v1/orgs/{id}/credits.

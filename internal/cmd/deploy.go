@@ -43,10 +43,13 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return fmt.Errorf("hero.toml: %w", err)
 			}
 
-			// 2. Get org (needed for image namespace).
+			// 2. Get org (needed for image namespace and preflight cap check).
 			org, err := deps.Client.GetOrg(ctx)
 			if err != nil {
 				return fmt.Errorf("get org: %w", err)
+			}
+			if org.RunningVMs >= int64(org.VmCap) {
+				return fmt.Errorf("vm cap of %d reached — stop or delete an existing deployment first", org.VmCap)
 			}
 
 			// 3. Find project by name.
