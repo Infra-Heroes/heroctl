@@ -37,11 +37,13 @@ func New(serverURL, authDomain, clientID string, tok *auth.Token) *Client {
 
 // Org represents a hero-api organisation.
 type Org struct {
-	ID        int64  `json:"ID"`
-	ZitadelID string `json:"ZitadelID"`
-	Name      string `json:"Name"`
-	VmCap     int32  `json:"VmCap"`
-	CreatedAt string `json:"CreatedAt"`
+	ID          int64  `json:"ID"`
+	ZitadelID   string `json:"ZitadelID"`
+	Name        string `json:"Name"`
+	VmCap       int32  `json:"VmCap"`
+	RunningVMs  int64  `json:"RunningVMs"`
+	MaxProjects int32  `json:"MaxProjects"`
+	CreatedAt   string `json:"CreatedAt"`
 }
 
 // Credits is the response from GET /api/v1/orgs/{id}/credits.
@@ -224,8 +226,8 @@ func (c *Client) CreateDeployment(ctx context.Context, projectID string, req Cre
 
 // StopDeployment stops the active deployment for the named app within a project.
 func (c *Client) StopDeployment(ctx context.Context, projectID, appName string) error {
-	return c.do(ctx, http.MethodDelete,
-		"/api/v1/projects/"+projectID+"/deployments/"+appName,
+	return c.do(ctx, http.MethodPost,
+		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/stop",
 		nil, nil)
 }
 
