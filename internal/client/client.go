@@ -303,7 +303,7 @@ func (c *Client) StreamLogs(ctx context.Context, projectID, appName string, foll
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("logs: status %d", resp.StatusCode)
 	}
 	return resp.Body, nil
@@ -336,7 +336,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 	if err != nil {
 		return fmt.Errorf("request %s %s: %w", method, path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		var errResp struct {
@@ -379,7 +379,7 @@ func (c *Client) doOpen(ctx context.Context, method, path string, body any, out 
 	if err != nil {
 		return fmt.Errorf("request %s %s: %w", method, path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		var errResp struct {

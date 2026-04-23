@@ -24,7 +24,7 @@ func logsCmd(deps *Deps) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("logs: %w", err)
 			}
-			defer body.Close()
+			defer func() { _ = body.Close() }()
 
 			scanner := bufio.NewScanner(body)
 			for scanner.Scan() {
