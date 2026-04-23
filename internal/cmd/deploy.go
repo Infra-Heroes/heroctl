@@ -35,7 +35,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return fmt.Errorf("hero.toml not found in current directory: %w", err)
 			}
 			heroCfg, err := toml.Parse(f)
-			f.Close()
+			_ = f.Close()
 			if err != nil {
 				return err
 			}

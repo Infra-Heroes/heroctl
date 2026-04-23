@@ -42,7 +42,7 @@ func Load() (*Token, error) {
 	if err != nil {
 		return nil, fmt.Errorf("not authenticated — run 'heroctl login' first")
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var tok Token
 	if err := json.NewDecoder(f).Decode(&tok); err != nil {
@@ -67,7 +67,7 @@ func Save(tok *Token) error {
 	if err != nil {
 		return fmt.Errorf("open token file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	return enc.Encode(tok)

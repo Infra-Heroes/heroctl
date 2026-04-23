@@ -48,7 +48,7 @@ func StartDeviceFlow(ctx context.Context, authDomain, clientID string) (*DeviceA
 	if err != nil {
 		return nil, fmt.Errorf("device_authorization request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("device_authorization returned HTTP %d", resp.StatusCode)
@@ -147,7 +147,7 @@ func postToken(ctx context.Context, endpoint string, vals url.Values) (*tokenRes
 	if err != nil {
 		return nil, fmt.Errorf("token request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var tr tokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tr); err != nil {

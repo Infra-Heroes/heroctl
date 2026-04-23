@@ -33,9 +33,9 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 				return nil
 			}
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "APP\tSTATUS\tHOSTNAME\tIMAGE\tCPU\tMEM(MB)\tPORT\tCREATED")
+			_, _ = fmt.Fprintln(w, "APP\tSTATUS\tHOSTNAME\tIMAGE\tCPU\tMEM(MB)\tPORT\tCREATED")
 			for _, d := range ds {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\n",
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\n",
 					d.AppName, d.Status, d.Hostname, d.Image, d.CPU, d.MemoryMB, d.Port, d.CreatedAt)
 			}
 			return w.Flush()

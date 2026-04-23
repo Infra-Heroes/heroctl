@@ -1,0 +1,123 @@
+name: Go CI
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.10
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Run govulncheck
+        continue-on-error: true
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+      - name: Run gosec
+        continue-on-error: true
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec ./...
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Run Tests
+        run: go test -race -cover -coverprofile=coverage.txt ./...
+      - name: Coverage Summary
+        run: |
+          echo "## Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          go tool cover -func=coverage.txt >> $GITHUB_STEP_SUMMARY
+
+  build-release:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: [lint, security, test]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Build binary
+        env:
+          CGO_ENABLED: '0'
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -trimpath \
+            -ldflags "-s -w \
+              -X github.com/Infra-Heroes/heroctl/internal/build.ServerURL=${{ secrets.SERVER_URL }} \
+              -X github.com/Infra-Heroes/heroctl/internal/build.AuthDomain=${{ secrets.AUTH_DOMAIN }} \
+              -X github.com/Infra-Heroes/heroctl/internal/build.ClientID=${{ secrets.CLIENT_ID }} \
+              -X github.com/Infra-Heroes/heroctl/internal/build.Version=${{ github.ref_name }}" \
+            -o heroctl-${{ matrix.goos }}-${{ matrix.goarch }} \
+            ./cmd/heroctl
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: heroctl-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: heroctl-${{ matrix.goos }}-${{ matrix.goarch }}
+          retention-days: 7
+
+  release:
+    name: Create Release
+    needs: [build-release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: heroctl-*
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-rc') || contains(github.ref, '-alpha') }}

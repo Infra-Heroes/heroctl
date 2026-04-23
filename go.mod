@@ -2,10 +2,7 @@ module github.com/Infra-Heroes/heroctl
 
 go 1.26.1
 
-replace github.com/Infra-Heroes/NanoStackUtilities => ../NanoStackUtilities
-
 require (
-	github.com/Infra-Heroes/NanoStackUtilities v0.0.0
 	github.com/pelletier/go-toml/v2 v2.3.0
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/term v0.41.0
