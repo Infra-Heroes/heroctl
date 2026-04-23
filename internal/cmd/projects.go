@@ -34,7 +34,7 @@ func projectsCmd(deps *Deps) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("create project: %w", err)
 			}
-			fmt.Printf("Project %q created (ID: %s, VNI: %d)\n", p.Name, p.ID, p.VNI)
+			fmt.Printf("Project %q created (ID: %s)\n", p.Name, p.ID)
 			return nil
 		},
 	}
@@ -50,7 +50,6 @@ func projectsCmd(deps *Deps) *cobra.Command {
 			}
 			fmt.Printf("Name:      %s\n", p.Name)
 			fmt.Printf("ID:        %s\n", p.ID)
-			fmt.Printf("VNI:       %d\n", p.VNI)
 			fmt.Printf("Created:   %s\n", p.CreatedAt)
 			return nil
 		},
@@ -87,9 +86,9 @@ func listProjects(cmd *cobra.Command, deps *Deps) error {
 		return nil
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tVNI\tCREATED")
+	fmt.Fprintln(w, "ID\tNAME\tCREATED")
 	for _, p := range projects {
-		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", p.ID, p.Name, p.VNI, p.CreatedAt)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", p.ID, p.Name, p.CreatedAt)
 	}
 	return w.Flush()
 }

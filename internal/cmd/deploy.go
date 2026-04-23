@@ -136,7 +136,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 					return nil
 				case "dead":
 					fmt.Println()
-					return fmt.Errorf("deployment failed — Nomad job is dead; check logs with: heroctl deployments get %s --project %s", heroCfg.App.Name, projectName)
+					return fmt.Errorf("deployment failed — app crashed on startup; check logs with: heroctl deployments logs %s --project %s", heroCfg.App.Name, projectName)
 				default:
 					fmt.Print(".")
 				}

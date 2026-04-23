@@ -224,8 +224,8 @@ func (c *Client) CreateDeployment(ctx context.Context, projectID string, req Cre
 
 // StopDeployment stops the active deployment for the named app within a project.
 func (c *Client) StopDeployment(ctx context.Context, projectID, appName string) error {
-	return c.do(ctx, http.MethodDelete,
-		"/api/v1/projects/"+projectID+"/deployments/"+appName,
+	return c.do(ctx, http.MethodPost,
+		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/stop",
 		nil, nil)
 }
 
