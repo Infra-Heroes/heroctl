@@ -13,15 +13,15 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           path: heroctl
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           repository: Infra-Heroes/NanoStackUtilities
           path: NanoStackUtilities
           token: ${{ secrets.GH_ACCESS_TOKEN }}
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
           cache: true
@@ -36,15 +36,15 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           path: heroctl
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           repository: Infra-Heroes/NanoStackUtilities
           path: NanoStackUtilities
           token: ${{ secrets.GH_ACCESS_TOKEN }}
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
           cache: true
@@ -66,15 +66,15 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           path: heroctl
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           repository: Infra-Heroes/NanoStackUtilities
           path: NanoStackUtilities
           token: ${{ secrets.GH_ACCESS_TOKEN }}
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
           cache: true
@@ -105,10 +105,10 @@ jobs:
           - goos: darwin
             goarch: arm64
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           path: heroctl
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
           cache: true
