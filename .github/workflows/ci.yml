@@ -14,51 +14,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          path: heroctl
-          token: ${{ github.token }}
-      - uses: actions/checkout@v6
-        with:
-          repository: Infra-Heroes/NanoStackUtilities
-          path: NanoStackUtilities
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26'
           cache: true
-          cache-dependency-path: heroctl/go.sum
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.10
-          working-directory: heroctl
 
   security:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          path: heroctl
-          token: ${{ github.token }}
-      - uses: actions/checkout@v6
-        with:
-          repository: Infra-Heroes/NanoStackUtilities
-          path: NanoStackUtilities
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26'
           cache: true
-          cache-dependency-path: heroctl/go.sum
       - name: Run govulncheck
-        working-directory: heroctl
         continue-on-error: true
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
       - name: Run gosec
-        working-directory: heroctl
         continue-on-error: true
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
@@ -69,24 +48,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          path: heroctl
-          token: ${{ github.token }}
-      - uses: actions/checkout@v6
-        with:
-          repository: Infra-Heroes/NanoStackUtilities
-          path: NanoStackUtilities
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26'
           cache: true
-          cache-dependency-path: heroctl/go.sum
       - name: Run Tests
-        working-directory: heroctl
         run: go test -race -cover -coverprofile=coverage.txt ./...
       - name: Coverage Summary
-        working-directory: heroctl
         run: |
           echo "## Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
           go tool cover -func=coverage.txt >> $GITHUB_STEP_SUMMARY
@@ -109,25 +77,11 @@ jobs:
             goarch: arm64
     steps:
       - uses: actions/checkout@v6
-        with:
-          path: heroctl
-          token: ${{ github.token }}
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26'
           cache: true
-          cache-dependency-path: heroctl/go.sum
-      - name: Prepare NanoStackUtilities
-        working-directory: heroctl
-        env:
-          GOPRIVATE: github.com/Infra-Heroes/*
-        run: |
-          git config --global url."https://x-access-token:${{ secrets.GH_ACCESS_TOKEN }}@github.com/".insteadOf "https://github.com/"
-          go mod edit -require=github.com/Infra-Heroes/NanoStackUtilities@v0.1.0
-          go mod edit -dropreplace=github.com/Infra-Heroes/NanoStackUtilities
-          go mod tidy
       - name: Build binary
-        working-directory: heroctl
         env:
           CGO_ENABLED: '0'
           GOOS: ${{ matrix.goos }}
@@ -145,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: heroctl-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: heroctl/heroctl-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: heroctl-${{ matrix.goos }}-${{ matrix.goarch }}
           retention-days: 7
 
   release:
