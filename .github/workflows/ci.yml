@@ -133,7 +133,8 @@ jobs:
             -ldflags "-s -w \
               -X github.com/Infra-Heroes/heroctl/internal/build.ServerURL=${{ secrets.SERVER_URL }} \
               -X github.com/Infra-Heroes/heroctl/internal/build.AuthDomain=${{ secrets.AUTH_DOMAIN }} \
-              -X github.com/Infra-Heroes/heroctl/internal/build.ClientID=${{ secrets.CLIENT_ID }}" \
+              -X github.com/Infra-Heroes/heroctl/internal/build.ClientID=${{ secrets.CLIENT_ID }} \
+              -X github.com/Infra-Heroes/heroctl/internal/build.Version=${{ github.ref_name }}" \
             -o heroctl-${{ matrix.goos }}-${{ matrix.goarch }} \
             ./cmd/heroctl
       - name: Upload artifact

@@ -10,4 +10,7 @@ var (
 	AuthDomain = ""
 	// ClientID is the OAuth2 device-flow client ID.
 	ClientID = ""
+	// Version is the release tag injected at build time, e.g. "v1.2.3". Falls
+	// back to "dev" for local builds without ldflags injection.
+	Version = "dev"
 )
