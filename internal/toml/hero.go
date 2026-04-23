@@ -62,7 +62,7 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 		cfg.Deploy.Port = 8080
 	}
 	if cfg.Deploy.HealthPath == "" {
-		cfg.Deploy.HealthPath = "/"
+		return nil, fmt.Errorf("hero.toml: [deploy] health_path is required")
 	}
 	if cfg.Env == nil {
 		cfg.Env = make(map[string]string)
