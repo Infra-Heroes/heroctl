@@ -42,6 +42,9 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			if err := validateAppName(heroCfg.App.Name); err != nil {
 				return fmt.Errorf("hero.toml: %w", err)
 			}
+			if err := validateEnv(heroCfg.Env); err != nil {
+				return fmt.Errorf("hero.toml [env]: %w", err)
+			}
 
 			// 2. Get org (needed for image namespace and preflight cap check).
 			org, err := deps.Client.GetOrg(ctx)
