@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -41,6 +42,9 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			}
 			if err := validateAppName(heroCfg.App.Name); err != nil {
 				return fmt.Errorf("hero.toml: %w", err)
+			}
+			if err := validateEnv(heroCfg.Env); err != nil {
+				return fmt.Errorf("hero.toml [env]: %w", err)
 			}
 
 			// 2. Get org (needed for image namespace and preflight cap check).
@@ -133,10 +137,27 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				switch nomadStatus {
 				case "running":
 					fmt.Println(" running!")
-					if deployment.Hostname != "" {
-						fmt.Printf("URL: https://%s\n", deployment.Hostname)
+					if deployment.Hostname == "" {
+						return nil
 					}
-					return nil
+					healthURL := "https://" + deployment.Hostname + heroCfg.Deploy.HealthPath
+					fmt.Printf("Waiting for app to become reachable at %s", healthURL)
+					httpClient := &http.Client{Timeout: 5 * time.Second}
+					for time.Now().Before(deadline) {
+						resp, err := httpClient.Get(healthURL) //nolint:noctx
+						if err == nil {
+							_ = resp.Body.Close()
+							if resp.StatusCode < 500 {
+								fmt.Println(" ready!")
+								fmt.Printf("URL: https://%s\n", deployment.Hostname)
+								return nil
+							}
+						}
+						fmt.Print(".")
+						time.Sleep(3 * time.Second)
+					}
+					fmt.Println()
+					return fmt.Errorf("timed out waiting for app to become reachable")
 				case "dead":
 					fmt.Println()
 					return fmt.Errorf("deployment failed — app crashed on startup; check logs with: heroctl deployments logs %s --project %s", heroCfg.App.Name, projectName)

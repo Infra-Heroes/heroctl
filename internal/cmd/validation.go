@@ -16,3 +16,16 @@ func validateAppName(name string) error {
 	}
 	return nil
 }
+
+// envKeyRe matches valid POSIX environment variable names.
+var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// validateEnv returns an error if any key is not a valid POSIX env var name.
+func validateEnv(env map[string]string) error {
+	for k := range env {
+		if !envKeyRe.MatchString(k) {
+			return fmt.Errorf("env key %q is invalid: must start with a letter or underscore and contain only letters, digits, and underscores", k)
+		}
+	}
+	return nil
+}
