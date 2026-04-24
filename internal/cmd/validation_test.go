@@ -19,8 +19,9 @@ func TestValidateEnv(t *testing.T) {
 		{name: "digits in key", input: map[string]string{"FOO_123": "val"}, wantErr: false},
 		{name: "empty value", input: map[string]string{"FOO": ""}, wantErr: false},
 		{name: "special chars in value", input: map[string]string{"FOO": "bar=baz"}, wantErr: false},
+		{name: "value with space", input: map[string]string{"FOO": "hello world"}, wantErr: false},
+		{name: "value with newline", input: map[string]string{"FOO": "hello\nworld"}, wantErr: false},
 		{name: "secret reference", input: map[string]string{"DB_PASS": "secret:my-secret"}, wantErr: false},
-		{name: "secret reference with space in name", input: map[string]string{"DB_PASS": "secret:my secret"}, wantErr: false},
 
 		// invalid keys
 		{name: "key starts with digit", input: map[string]string{"1FOO": "bar"}, wantErr: true},
@@ -28,11 +29,6 @@ func TestValidateEnv(t *testing.T) {
 		{name: "key with space", input: map[string]string{"FOO BAR": "val"}, wantErr: true},
 		{name: "key with dot", input: map[string]string{"FOO.BAR": "val"}, wantErr: true},
 		{name: "empty key", input: map[string]string{"": "val"}, wantErr: true},
-
-		// invalid values (non-secret)
-		{name: "value with space", input: map[string]string{"FOO": "hello world"}, wantErr: true},
-		{name: "value with tab", input: map[string]string{"FOO": "hello\tworld"}, wantErr: true},
-		{name: "value with newline", input: map[string]string{"FOO": "hello\nworld"}, wantErr: true},
 	}
 
 	for _, tt := range tests {

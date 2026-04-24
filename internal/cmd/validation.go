@@ -3,8 +3,6 @@ package cmd
 import (
 	"fmt"
 	"regexp"
-	"strings"
-	"unicode"
 )
 
 // appNameRe matches valid app names: 1–63 characters, lowercase letters/digits/hyphens,
@@ -22,22 +20,11 @@ func validateAppName(name string) error {
 // envKeyRe matches valid POSIX environment variable names.
 var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-// validateEnv validates env keys and non-secret values from hero.toml.
-// Values starting with "secret:" are skipped — their resolved values are
-// validated server-side after Vault lookup.
-// Keys must be valid POSIX names; values must not contain whitespace.
+// validateEnv returns an error if any key is not a valid POSIX env var name.
 func validateEnv(env map[string]string) error {
-	for k, v := range env {
+	for k := range env {
 		if !envKeyRe.MatchString(k) {
 			return fmt.Errorf("env key %q is invalid: must start with a letter or underscore and contain only letters, digits, and underscores", k)
-		}
-		if strings.HasPrefix(v, "secret:") {
-			continue
-		}
-		for _, r := range v {
-			if unicode.IsSpace(r) {
-				return fmt.Errorf("env key %q: value must not contain whitespace (kernel cmdline transport limitation)", k)
-			}
 		}
 	}
 	return nil
