@@ -111,6 +111,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				Port:       heroCfg.Deploy.Port,
 				Env:        heroCfg.Env,
 				HealthPath: heroCfg.Deploy.HealthPath,
+				ScaleToZero: heroCfg.Deploy.ScaleToZero,
 			})
 			if err != nil {
 				return fmt.Errorf("create deployment: %w", err)

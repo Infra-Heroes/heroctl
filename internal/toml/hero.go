@@ -35,6 +35,8 @@ type DeployConfig struct {
 	Port int `toml:"port"`
 	// HealthPath is the HTTP path used for the Nomad health check (default "/").
 	HealthPath string `toml:"health_path"`
+	// ScaleToZero enables automatic shutdown of the app when idle (default false).
+	ScaleToZero bool `toml:"scale_to_zero"`
 }
 
 // Parse reads and validates a hero.toml from r.
