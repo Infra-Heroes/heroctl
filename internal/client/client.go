@@ -284,6 +284,133 @@ func (c *Client) RegistryCredentials(ctx context.Context) (*RegistryCreds, error
 	return &out, c.do(ctx, http.MethodPost, "/api/v1/registry/credentials", nil, &out)
 }
 
+// ── Members ───────────────────────────────────────────────────────────────────
+
+// OrgMember is a member of an org as returned by the API.
+type OrgMember struct {
+	ID            int64  `json:"id"`
+	PrincipalID   string `json:"principal_id"`
+	PrincipalType string `json:"principal_type"`
+	Email         string `json:"email"`
+	Role          string `json:"role"`
+	CreatedAt     string `json:"created_at"`
+}
+
+// ProjectMember is a project-level member as returned by the API.
+type ProjectMember struct {
+	ID            int64  `json:"id"`
+	PrincipalID   string `json:"principal_id"`
+	PrincipalType string `json:"principal_type"`
+	Role          string `json:"role"`
+	CreatedAt     string `json:"created_at"`
+}
+
+// Invitation is a pending org membership invitation.
+type Invitation struct {
+	ID        int64  `json:"id"`
+	Email     string `json:"email"`
+	OrgRole   string `json:"org_role"`
+	InvitedBy string `json:"invited_by"`
+	ExpiresAt string `json:"expires_at"`
+	CreatedAt string `json:"created_at"`
+}
+
+// ProjectRoleEntry is one element of project_roles in an invitation request.
+type ProjectRoleEntry struct {
+	ProjectID string `json:"project_id"`
+	Role      string `json:"role"`
+}
+
+// CreateInvitationRequest is the body for POST /api/v1/invitations.
+type CreateInvitationRequest struct {
+	Email        string             `json:"email"`
+	OrgRole      string             `json:"org_role"`
+	ProjectRoles []ProjectRoleEntry `json:"project_roles"`
+}
+
+// InvitationCreated is the response from POST /api/v1/invitations.
+type InvitationCreated struct {
+	ID        int64  `json:"id"`
+	Token     string `json:"token"`
+	Email     string `json:"email"`
+	OrgRole   string `json:"org_role"`
+	ExpiresAt string `json:"expires_at"`
+}
+
+// ListOrgMembers returns all members of the authenticated org.
+func (c *Client) ListOrgMembers(ctx context.Context) ([]OrgMember, error) {
+	var out []OrgMember
+	if err := c.do(ctx, http.MethodGet, "/api/v1/members", nil, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = []OrgMember{}
+	}
+	return out, nil
+}
+
+// UpdateMemberRole changes an org member's role.
+func (c *Client) UpdateMemberRole(ctx context.Context, principalID, role string) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/members/"+principalID+"/role",
+		map[string]string{"role": role}, nil)
+}
+
+// RemoveOrgMember removes a member from the org.
+func (c *Client) RemoveOrgMember(ctx context.Context, principalID string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/members/"+principalID, nil, nil)
+}
+
+// ListProjectMembers returns all explicit project members.
+func (c *Client) ListProjectMembers(ctx context.Context, projectID string) ([]ProjectMember, error) {
+	var out []ProjectMember
+	if err := c.do(ctx, http.MethodGet, "/api/v1/projects/"+projectID+"/members", nil, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = []ProjectMember{}
+	}
+	return out, nil
+}
+
+// UpsertProjectMember adds or updates a project-level member.
+func (c *Client) UpsertProjectMember(ctx context.Context, projectID, principalID, role string) error {
+	return c.do(ctx, http.MethodPut, "/api/v1/projects/"+projectID+"/members/"+principalID,
+		map[string]string{"role": role}, nil)
+}
+
+// RemoveProjectMember removes a project-level member.
+func (c *Client) RemoveProjectMember(ctx context.Context, projectID, principalID string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/projects/"+projectID+"/members/"+principalID, nil, nil)
+}
+
+// CreateInvitation creates a new org membership invitation.
+func (c *Client) CreateInvitation(ctx context.Context, req CreateInvitationRequest) (*InvitationCreated, error) {
+	var out InvitationCreated
+	return &out, c.do(ctx, http.MethodPost, "/api/v1/invitations", req, &out)
+}
+
+// ListInvitations returns pending invitations for the org.
+func (c *Client) ListInvitations(ctx context.Context) ([]Invitation, error) {
+	var out []Invitation
+	if err := c.do(ctx, http.MethodGet, "/api/v1/invitations", nil, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = []Invitation{}
+	}
+	return out, nil
+}
+
+// RevokeInvitation revokes a pending invitation.
+func (c *Client) RevokeInvitation(ctx context.Context, invitationID int64) error {
+	return c.do(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/invitations/%d", invitationID), nil, nil)
+}
+
+// AcceptInvitation accepts an invitation using a token. Requires authentication.
+func (c *Client) AcceptInvitation(ctx context.Context, token string) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/invitations/"+token+"/accept", nil, nil)
+}
+
 // StreamLogs opens a streaming connection to the logs endpoint and returns the
 // response body. The caller must close it. follow=true tails live output.
 func (c *Client) StreamLogs(ctx context.Context, projectID, appName string, follow bool) (io.ReadCloser, error) {

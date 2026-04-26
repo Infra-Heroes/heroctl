@@ -72,7 +72,79 @@ func projectsCmd(deps *Deps) *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(list, create, get, del)
+	projectMembersCmd := projectsMembersCmd(deps)
+	cmd.AddCommand(list, create, get, del, projectMembersCmd)
+	return cmd
+}
+
+func projectsMembersCmd(deps *Deps) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "members",
+		Short: "Manage project-level members",
+	}
+
+	list := &cobra.Command{
+		Use:   "list <project-name>",
+		Short: "List members of a project",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			p, err := resolveProject(cmd.Context(), deps, args[0])
+			if err != nil {
+				return err
+			}
+			members, err := deps.Client.ListProjectMembers(cmd.Context(), p.ID)
+			if err != nil {
+				return err
+			}
+			if len(members) == 0 {
+				fmt.Println("No explicit project members (owner/admin have implicit access).")
+				return nil
+			}
+			fmt.Printf("%-42s  %-8s\n", "PRINCIPAL ID", "ROLE")
+			for _, m := range members {
+				fmt.Printf("%-42s  %-8s\n", m.PrincipalID, m.Role)
+			}
+			return nil
+		},
+	}
+
+	var role string
+	add := &cobra.Command{
+		Use:   "add <project-name> <principalID>",
+		Short: "Add or update a project member",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			p, err := resolveProject(cmd.Context(), deps, args[0])
+			if err != nil {
+				return err
+			}
+			if err := deps.Client.UpsertProjectMember(cmd.Context(), p.ID, args[1], role); err != nil {
+				return err
+			}
+			fmt.Printf("Member %s added to project %q with role %s.\n", args[1], p.Name, role)
+			return nil
+		},
+	}
+	add.Flags().StringVar(&role, "role", "viewer", "Project role: 'editor' or 'viewer'")
+
+	remove := &cobra.Command{
+		Use:   "remove <project-name> <principalID>",
+		Short: "Remove a project member",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			p, err := resolveProject(cmd.Context(), deps, args[0])
+			if err != nil {
+				return err
+			}
+			if err := deps.Client.RemoveProjectMember(cmd.Context(), p.ID, args[1]); err != nil {
+				return err
+			}
+			fmt.Printf("Member %s removed from project %q.\n", args[1], p.Name)
+			return nil
+		},
+	}
+
+	cmd.AddCommand(list, add, remove)
 	return cmd
 }
 
