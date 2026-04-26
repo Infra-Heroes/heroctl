@@ -37,7 +37,7 @@ func New(serverURL, authDomain, clientID string, tok *auth.Token) *Client {
 
 // Org represents a hero-api organisation.
 type Org struct {
-	ID          int64  `json:"ID"`
+	ID          string `json:"ID"`
 	ZitadelID   string `json:"ZitadelID"`
 	Name        string `json:"Name"`
 	VmCap       int32  `json:"VmCap"`
@@ -57,7 +57,7 @@ type Credits struct {
 // VNI is the VXLAN network identifier (separate from project identity).
 type Project struct {
 	ID        string `json:"id"`
-	OrgID     int64  `json:"org_id"`
+	OrgID     string `json:"org_id"`
 	Name      string `json:"name"`
 	VNI       int    `json:"vni"`
 	CreatedAt string `json:"created_at"`
@@ -112,7 +112,7 @@ type DeploymentStatus struct {
 
 // Secret represents a secret key (value is never returned by the API).
 type Secret struct {
-	ID        int64  `json:"id"`
+	ID        string `json:"id"`
 	Key       string `json:"key"`
 	CreatedAt string `json:"created_at"`
 }
@@ -158,9 +158,9 @@ func (c *Client) CreateOrg(ctx context.Context, name string) (*Org, error) {
 }
 
 // GetCredits returns the current credit balance for the given internal org ID.
-func (c *Client) GetCredits(ctx context.Context, orgID int64) (*Credits, error) {
+func (c *Client) GetCredits(ctx context.Context, orgID string) (*Credits, error) {
 	var out Credits
-	return &out, c.do(ctx, http.MethodGet, fmt.Sprintf("/api/v1/orgs/%d/credits", orgID), nil, &out)
+	return &out, c.do(ctx, http.MethodGet, "/api/v1/orgs/"+orgID+"/credits", nil, &out)
 }
 
 // ListProjects returns all projects for the authenticated org.
@@ -288,7 +288,7 @@ func (c *Client) RegistryCredentials(ctx context.Context) (*RegistryCreds, error
 
 // OrgMember is a member of an org as returned by the API.
 type OrgMember struct {
-	ID            int64  `json:"id"`
+	ID            string `json:"id"`
 	PrincipalID   string `json:"principal_id"`
 	PrincipalType string `json:"principal_type"`
 	Email         string `json:"email"`
@@ -298,7 +298,7 @@ type OrgMember struct {
 
 // ProjectMember is a project-level member as returned by the API.
 type ProjectMember struct {
-	ID            int64  `json:"id"`
+	ID            string `json:"id"`
 	PrincipalID   string `json:"principal_id"`
 	PrincipalType string `json:"principal_type"`
 	Role          string `json:"role"`
@@ -307,7 +307,7 @@ type ProjectMember struct {
 
 // Invitation is a pending org membership invitation.
 type Invitation struct {
-	ID        int64  `json:"id"`
+	ID        string `json:"id"`
 	Email     string `json:"email"`
 	OrgRole   string `json:"org_role"`
 	InvitedBy string `json:"invited_by"`
@@ -330,7 +330,7 @@ type CreateInvitationRequest struct {
 
 // InvitationCreated is the response from POST /api/v1/invitations.
 type InvitationCreated struct {
-	ID        int64  `json:"id"`
+	ID        string `json:"id"`
 	Token     string `json:"token"`
 	Email     string `json:"email"`
 	OrgRole   string `json:"org_role"`
@@ -402,8 +402,8 @@ func (c *Client) ListInvitations(ctx context.Context) ([]Invitation, error) {
 }
 
 // RevokeInvitation revokes a pending invitation.
-func (c *Client) RevokeInvitation(ctx context.Context, invitationID int64) error {
-	return c.do(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/invitations/%d", invitationID), nil, nil)
+func (c *Client) RevokeInvitation(ctx context.Context, invitationID string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/invitations/"+invitationID, nil, nil)
 }
 
 // AcceptInvitation accepts an invitation using a token. Requires authentication.

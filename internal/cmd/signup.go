@@ -62,7 +62,7 @@ func signupCmd() *cobra.Command {
 			}
 
 			fmt.Printf("\nAccount created successfully.\n")
-			fmt.Printf("Org:     %s (ID: %d)\n", resp.Org.Name, resp.Org.ID)
+			fmt.Printf("Org:     %s (ID: %s)\n", resp.Org.Name, resp.Org.ID)
 			fmt.Printf("Project: %s (ID: %s)\n", resp.Project.Name, resp.Project.ID)
 			fmt.Println("\nRun 'heroctl login' to authenticate.")
 			return nil

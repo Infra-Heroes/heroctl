@@ -151,10 +151,10 @@ func membersInvitationsListCmd(deps *Deps) *cobra.Command {
 				fmt.Println("No pending invitations.")
 				return nil
 			}
-			fmt.Printf("%-6s  %-30s  %-8s  %s\n", "ID", "EMAIL", "ROLE", "EXPIRES")
+			fmt.Printf("%-36s  %-30s  %-8s  %s\n", "ID", "EMAIL", "ROLE", "EXPIRES")
 			fmt.Println(strings.Repeat("-", 70))
 			for _, inv := range invs {
-				fmt.Printf("%-6d  %-30s  %-8s  %s\n", inv.ID, inv.Email, inv.OrgRole, inv.ExpiresAt)
+				fmt.Printf("%-36s  %-30s  %-8s  %s\n", inv.ID, inv.Email, inv.OrgRole, inv.ExpiresAt)
 			}
 			return nil
 		},
@@ -167,14 +167,11 @@ func membersInvitationsRevokeCmd(deps *Deps) *cobra.Command {
 		Short: "Revoke a pending invitation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var id int64
-			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-				return fmt.Errorf("invalid invitation ID %q", args[0])
-			}
+			id := args[0]
 			if err := deps.Client.RevokeInvitation(cmd.Context(), id); err != nil {
 				return err
 			}
-			fmt.Printf("Invitation %d revoked.\n", id)
+			fmt.Printf("Invitation %s revoked.\n", id)
 			return nil
 		},
 	}
