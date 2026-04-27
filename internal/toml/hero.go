@@ -37,6 +37,8 @@ type DeployConfig struct {
 	HealthPath string `toml:"health_path"`
 	// ScaleToZero enables automatic shutdown of the app when idle (default false).
 	ScaleToZero bool `toml:"scale_to_zero"`
+	// RetentionDuration is the maximum lifespan of the deployment (e.g. "1h", "24h").
+	RetentionDuration string `toml:"retention_duration"`
 }
 
 // Parse reads and validates a hero.toml from r.

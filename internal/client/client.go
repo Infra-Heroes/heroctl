@@ -103,6 +103,7 @@ type CreateDeploymentRequest struct {
 	Env        map[string]string `json:"env"`
 	HealthPath string            `json:"health_path"`
 	ScaleToZero bool             `json:"scale_to_zero"`
+	RetentionDuration string     `json:"retention_duration"`
 }
 
 // DeploymentStatus is the response from GET /api/v1/projects/{id}/deployments/{id}/status.
