@@ -108,17 +108,45 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return fmt.Errorf("docker push: %w", err)
 			}
 
-			// 9. Create deployment.
+			// 9. Resolve volume names → IDs.
+			var volumeAttachments []client.VolumeAttachment
+			if len(heroCfg.Volumes) > 0 {
+				allVolumes, err := deps.Client.ListVolumes(ctx, project.ID)
+				if err != nil {
+					return fmt.Errorf("list volumes: %w", err)
+				}
+				volumeIndex := make(map[string]client.Volume, len(allVolumes))
+				for _, v := range allVolumes {
+					volumeIndex[v.Name] = v
+				}
+				for _, vc := range heroCfg.Volumes {
+					v, ok := volumeIndex[vc.Name]
+					if !ok {
+						return fmt.Errorf("volume %q not found — create it first with: heroctl volumes create %s --size <gb> --project %s",
+							vc.Name, vc.Name, projectName)
+					}
+					if v.Status == "attached" {
+						fmt.Printf("Warning: volume %q is currently attached to another deployment; the API will enforce this.\n", vc.Name)
+					}
+					volumeAttachments = append(volumeAttachments, client.VolumeAttachment{
+						VolumeID:  v.ID,
+						MountPath: vc.Mount,
+					})
+				}
+			}
+
+			// 10. Create deployment.
 			fmt.Printf("Deploying to project %q (ID: %s)...\n", project.Name, project.ID)
 			deployment, err := deps.Client.CreateDeployment(ctx, project.ID, client.CreateDeploymentRequest{
-				AppName:    heroCfg.App.Name,
-				Image:      image,
-				CPU:        heroCfg.Deploy.CPU,
-				MemoryMB:   heroCfg.Deploy.MemoryMB,
-				Port:       heroCfg.Deploy.Port,
-				Env:        heroCfg.Env,
-				HealthPath: heroCfg.Deploy.HealthPath,
+				AppName:     heroCfg.App.Name,
+				Image:       image,
+				CPU:         heroCfg.Deploy.CPU,
+				MemoryMB:    heroCfg.Deploy.MemoryMB,
+				Port:        heroCfg.Deploy.Port,
+				Env:         heroCfg.Env,
+				HealthPath:  heroCfg.Deploy.HealthPath,
 				ScaleToZero: heroCfg.Deploy.ScaleToZero,
+				Volumes:     volumeAttachments,
 			})
 			if err != nil {
 				return fmt.Errorf("create deployment: %w", err)

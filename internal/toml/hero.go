@@ -13,9 +13,18 @@ var validAppName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$`)
 
 // HeroConfig is the parsed representation of a hero.toml file.
 type HeroConfig struct {
-	App    AppConfig         `toml:"app"`
-	Deploy DeployConfig      `toml:"deploy"`
-	Env    map[string]string `toml:"env"`
+	App     AppConfig         `toml:"app"`
+	Deploy  DeployConfig      `toml:"deploy"`
+	Env     map[string]string `toml:"env"`
+	Volumes []VolumeConfig    `toml:"volumes"`
+}
+
+// VolumeConfig declares a volume attachment for a deployment.
+type VolumeConfig struct {
+	// Name is the volume's name within this project. Must already exist (created via heroctl volumes create).
+	Name string `toml:"name"`
+	// Mount is the absolute path inside the VM where the volume will be mounted.
+	Mount string `toml:"mount"`
 }
 
 // AppConfig holds the application identity configuration.
@@ -68,6 +77,24 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 	}
 	if cfg.Env == nil {
 		cfg.Env = make(map[string]string)
+	}
+
+	// Validate volume blocks.
+	seenMounts := make(map[string]bool)
+	for i, v := range cfg.Volumes {
+		if v.Name == "" {
+			return nil, fmt.Errorf("hero.toml: [[volumes]][%d] name is required", i)
+		}
+		if v.Mount == "" {
+			return nil, fmt.Errorf("hero.toml: [[volumes]][%d] mount is required", i)
+		}
+		if v.Mount[0] != '/' {
+			return nil, fmt.Errorf("hero.toml: [[volumes]][%d] mount must be an absolute path (start with /)", i)
+		}
+		if seenMounts[v.Mount] {
+			return nil, fmt.Errorf("hero.toml: [[volumes]] duplicate mount path %q", v.Mount)
+		}
+		seenMounts[v.Mount] = true
 	}
 
 	return &cfg, nil

@@ -93,16 +93,23 @@ type DeploymentCreated struct {
 	Hostname   string `json:"hostname"`
 }
 
+// VolumeAttachment describes a volume to attach to a deployment.
+type VolumeAttachment struct {
+	VolumeID  string `json:"volume_id"`
+	MountPath string `json:"mount_path"`
+}
+
 // CreateDeploymentRequest is the body for POST /api/v1/projects/{id}/deployments.
 type CreateDeploymentRequest struct {
-	AppName    string            `json:"app_name"`
-	Image      string            `json:"image"`
-	CPU        int               `json:"cpu"`
-	MemoryMB   int               `json:"memory_mb"`
-	Port       int               `json:"port"`
-	Env        map[string]string `json:"env"`
-	HealthPath string            `json:"health_path"`
-	ScaleToZero bool             `json:"scale_to_zero"`
+	AppName     string            `json:"app_name"`
+	Image       string            `json:"image"`
+	CPU         int               `json:"cpu"`
+	MemoryMB    int               `json:"memory_mb"`
+	Port        int               `json:"port"`
+	Env         map[string]string `json:"env"`
+	HealthPath  string            `json:"health_path"`
+	ScaleToZero bool              `json:"scale_to_zero"`
+	Volumes     []VolumeAttachment `json:"volumes,omitempty"`
 }
 
 // DeploymentStatus is the response from GET /api/v1/projects/{id}/deployments/{id}/status.
@@ -282,6 +289,47 @@ func (c *Client) DeleteSecret(ctx context.Context, key string) error {
 func (c *Client) RegistryCredentials(ctx context.Context) (*RegistryCreds, error) {
 	var out RegistryCreds
 	return &out, c.do(ctx, http.MethodPost, "/api/v1/registry/credentials", nil, &out)
+}
+
+// ── Volumes ───────────────────────────────────────────────────────────────────
+
+// Volume represents a Ceph RBD volume owned by a project.
+type Volume struct {
+	ID                   string  `json:"id"`
+	Name                 string  `json:"name"`
+	SizeGB               int     `json:"size_gb"`
+	Status               string  `json:"status"`
+	AttachedDeploymentID *string `json:"attached_deployment_id"`
+	CreatedAt            string  `json:"created_at"`
+}
+
+// CreateVolumeRequest is the body for POST /api/v1/projects/{id}/volumes.
+type CreateVolumeRequest struct {
+	Name   string `json:"name"`
+	SizeGB int    `json:"size_gb"`
+}
+
+// CreateVolume creates a new volume in the given project.
+func (c *Client) CreateVolume(ctx context.Context, projectID string, req CreateVolumeRequest) (*Volume, error) {
+	var out Volume
+	return &out, c.do(ctx, http.MethodPost, "/api/v1/projects/"+projectID+"/volumes", req, &out)
+}
+
+// ListVolumes returns all volumes for a project.
+func (c *Client) ListVolumes(ctx context.Context, projectID string) ([]Volume, error) {
+	var out []Volume
+	if err := c.do(ctx, http.MethodGet, "/api/v1/projects/"+projectID+"/volumes", nil, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = []Volume{}
+	}
+	return out, nil
+}
+
+// DeleteVolume permanently deletes a volume by its UUID.
+func (c *Client) DeleteVolume(ctx context.Context, projectID, volumeID string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/projects/"+projectID+"/volumes/"+volumeID, nil, nil)
 }
 
 // ── Members ───────────────────────────────────────────────────────────────────
