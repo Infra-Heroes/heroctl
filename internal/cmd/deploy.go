@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ const deployTimeout = 5 * time.Minute
 
 func deployCmd(deps *Deps) *cobra.Command {
 	var projectName string
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "deploy",
@@ -47,13 +49,10 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return fmt.Errorf("hero.toml [env]: %w", err)
 			}
 
-			// 2. Get org (needed for image namespace and preflight cap check).
+			// 2. Get org (needed for image namespace).
 			org, err := deps.Client.GetOrg(ctx)
 			if err != nil {
 				return fmt.Errorf("get org: %w", err)
-			}
-			if org.RunningVMs >= int64(org.VmCap) {
-				return fmt.Errorf("vm cap of %d reached — stop or delete an existing deployment first", org.VmCap)
 			}
 
 			// 3. Find project by name.
@@ -135,7 +134,21 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				}
 			}
 
-			// 10. Create deployment.
+			// 10. Confirm before deploying with volumes — the server must stop the
+			// running allocation first, causing brief downtime.
+			if len(volumeAttachments) > 0 && !yes {
+				fmt.Println("Warning: this app has volumes attached.")
+				fmt.Println("If an active deployment exists it will be stopped before the new one starts, causing brief downtime.")
+				fmt.Print("Continue? [y/N] ")
+				scanner := bufio.NewScanner(os.Stdin)
+				scanner.Scan()
+				if answer := strings.TrimSpace(strings.ToLower(scanner.Text())); answer != "y" && answer != "yes" {
+					fmt.Println("Aborted.")
+					return nil
+				}
+			}
+
+			// 11. Create deployment.
 			fmt.Printf("Deploying to project %q (ID: %s)...\n", project.Name, project.ID)
 			deployment, err := deps.Client.CreateDeployment(ctx, project.ID, client.CreateDeploymentRequest{
 				AppName:     heroCfg.App.Name,
@@ -149,6 +162,9 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				Volumes:     volumeAttachments,
 			})
 			if err != nil {
+				if strings.Contains(err.Error(), "vm cap") {
+					return fmt.Errorf("%s — stop or delete an existing deployment first with: heroctl deployments list --project %s", err, projectName)
+				}
 				return fmt.Errorf("create deployment: %w", err)
 			}
 
@@ -200,6 +216,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 	}
 
 	cmd.Flags().StringVar(&projectName, "project", "", "Project name to deploy to (required)")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt (for CI/non-interactive use)")
 	_ = cmd.MarkFlagRequired("project")
 
 	return cmd
