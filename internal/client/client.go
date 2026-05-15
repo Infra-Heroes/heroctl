@@ -67,16 +67,17 @@ type Project struct {
 // ID is the UUID — the canonical deployment identifier (not shown to users).
 // Users interact with deployments by AppName within a project.
 type Deployment struct {
-	ID        string `json:"ID"`
-	ProjectID string `json:"ProjectID"`
-	AppName   string `json:"AppName"`
-	Image     string `json:"Image"`
-	Status    string `json:"Status"`
-	CPU       int32  `json:"Cpu"`
-	MemoryMB  int32  `json:"MemoryMb"`
-	Port      int32  `json:"Port"`
-	Hostname  string `json:"Hostname"`
-	CreatedAt string `json:"CreatedAt"`
+	ID           string `json:"ID"`
+	ProjectID    string `json:"ProjectID"`
+	AppName      string `json:"AppName"`
+	Image        string `json:"Image"`
+	Status       string `json:"Status"`
+	CPU          int32  `json:"Cpu"`
+	MemoryMB     int32  `json:"MemoryMb"`
+	Port         int32  `json:"Port"`
+	Hostname     string `json:"Hostname"`
+	ServiceScope string `json:"ServiceScope"`
+	CreatedAt    string `json:"CreatedAt"`
 }
 
 // DeploymentCreated is the response from POST /api/v1/projects/{id}/deployments.
@@ -101,15 +102,18 @@ type VolumeAttachment struct {
 
 // CreateDeploymentRequest is the body for POST /api/v1/projects/{id}/deployments.
 type CreateDeploymentRequest struct {
-	AppName     string            `json:"app_name"`
-	Image       string            `json:"image"`
-	CPU         int               `json:"cpu"`
-	MemoryMB    int               `json:"memory_mb"`
-	Port        int               `json:"port"`
-	Env         map[string]string `json:"env"`
-	HealthPath  string            `json:"health_path"`
-	ScaleToZero bool              `json:"scale_to_zero"`
-	Volumes     []VolumeAttachment `json:"volumes,omitempty"`
+	AppName         string            `json:"app_name"`
+	Image           string            `json:"image"`
+	CPU             int               `json:"cpu"`
+	MemoryMB        int               `json:"memory_mb"`
+	Port            int               `json:"port"`
+	Env             map[string]string `json:"env"`
+	HealthPath      string            `json:"health_path"`
+	ScaleToZero     bool              `json:"scale_to_zero"`
+	ServiceScope    string            `json:"service_scope,omitempty"`
+	HealthCheckType string            `json:"health_check_type,omitempty"`
+	HealthCheckPort int               `json:"health_check_port,omitempty"`
+	Volumes         []VolumeAttachment `json:"volumes,omitempty"`
 }
 
 // DeploymentStatus is the response from GET /api/v1/projects/{id}/deployments/{id}/status.
