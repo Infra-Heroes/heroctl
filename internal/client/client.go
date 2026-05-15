@@ -119,6 +119,7 @@ type CreateDeploymentRequest struct {
 // DeploymentStatus is the response from GET /api/v1/projects/{id}/deployments/{id}/status.
 type DeploymentStatus struct {
 	NomadStatus string `json:"nomad_status"`
+	Healthy     bool   `json:"healthy"`
 }
 
 // Secret represents a secret key (value is never returned by the API).
@@ -217,15 +218,15 @@ func (c *Client) GetDeployment(ctx context.Context, projectID, appName string) (
 		nil, &out)
 }
 
-// GetDeploymentStatus returns the live Nomad job status for the active deployment of an app.
-func (c *Client) GetDeploymentStatus(ctx context.Context, projectID, appName string) (string, error) {
+// GetDeploymentStatus returns the live status for the active deployment of an app.
+func (c *Client) GetDeploymentStatus(ctx context.Context, projectID, appName string) (*DeploymentStatus, error) {
 	var out DeploymentStatus
 	if err := c.do(ctx, http.MethodGet,
 		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/status",
 		nil, &out); err != nil {
-		return "", err
+		return nil, err
 	}
-	return out.NomadStatus, nil
+	return &out, nil
 }
 
 // CreateDeployment submits a new deployment.
