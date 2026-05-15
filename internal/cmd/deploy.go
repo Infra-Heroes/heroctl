@@ -3,7 +3,6 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -179,50 +178,34 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return fmt.Errorf("create deployment: %w", err)
 			}
 
-			fmt.Printf("Deployment %q submitted. Waiting for VM to start", heroCfg.App.Name)
+			fmt.Printf("Deployment %q submitted. Waiting for VM to start and become healthy", heroCfg.App.Name)
 
 			deadline := time.Now().Add(deployTimeout)
 			for time.Now().Before(deadline) {
 				time.Sleep(5 * time.Second)
-				nomadStatus, err := deps.Client.GetDeploymentStatus(ctx, project.ID, heroCfg.App.Name)
+				status, err := deps.Client.GetDeploymentStatus(ctx, project.ID, heroCfg.App.Name)
 				if err != nil {
 					// Transient error — keep trying.
 					fmt.Print(".")
 					continue
 				}
-				switch nomadStatus {
-				case "running":
-					fmt.Println(" running!")
-					if deployment.Hostname == "" {
-						return nil
-					}
-					healthURL := "https://" + deployment.Hostname + heroCfg.Deploy.HealthPath
-					fmt.Printf("Waiting for app to become reachable at %s", healthURL)
-					httpClient := &http.Client{Timeout: 5 * time.Second}
-					for time.Now().Before(deadline) {
-						resp, err := httpClient.Get(healthURL) //nolint:noctx
-						if err == nil {
-							_ = resp.Body.Close()
-							if resp.StatusCode < 500 {
-								fmt.Println(" ready!")
-								fmt.Printf("URL: https://%s\n", deployment.Hostname)
-								return nil
-							}
-						}
-						fmt.Print(".")
-						time.Sleep(3 * time.Second)
-					}
-					fmt.Println()
-					return fmt.Errorf("timed out waiting for app to become reachable")
+				switch status.NomadStatus {
 				case "dead":
 					fmt.Println()
 					return fmt.Errorf("deployment failed — app crashed on startup; check logs with: heroctl deployments logs %s --project %s", heroCfg.App.Name, projectName)
-				default:
-					fmt.Print(".")
+				case "running":
+					if status.Healthy {
+						fmt.Println(" ready!")
+						if deployment.Hostname != "" {
+							fmt.Printf("URL: https://%s\n", deployment.Hostname)
+						}
+						return nil
+					}
 				}
+				fmt.Print(".")
 			}
 			fmt.Println()
-			return fmt.Errorf("timed out after %s waiting for deployment to start", deployTimeout)
+			return fmt.Errorf("timed out after %s waiting for deployment to become healthy", deployTimeout)
 		},
 	}
 
