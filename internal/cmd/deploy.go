@@ -21,9 +21,6 @@ const deployTimeout = 5 * time.Minute
 func deployCmd(deps *Deps) *cobra.Command {
 	var projectName string
 	var yes bool
-	var private bool
-	var healthType string
-	var healthPort int
 
 	cmd := &cobra.Command{
 		Use:   "deploy",
@@ -153,8 +150,12 @@ The project must already exist (create with: heroctl projects create <name>).`,
 
 			// 11. Create deployment.
 			scope := "public"
-			if private {
+			if heroCfg.Deploy.Private {
 				scope = "internal"
+			}
+			healthCheckType := heroCfg.Deploy.HealthCheckType
+			if healthCheckType == "" {
+				healthCheckType = "http"
 			}
 			fmt.Printf("Deploying to project %q (ID: %s)...\n", project.Name, project.ID)
 			deployment, err := deps.Client.CreateDeployment(ctx, project.ID, client.CreateDeploymentRequest{
@@ -167,8 +168,8 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				HealthPath:      heroCfg.Deploy.HealthPath,
 				ScaleToZero:     heroCfg.Deploy.ScaleToZero,
 				ServiceScope:    scope,
-				HealthCheckType: healthType,
-				HealthCheckPort: healthPort,
+				HealthCheckType: healthCheckType,
+				HealthCheckPort: heroCfg.Deploy.HealthCheckPort,
 				Volumes:         volumeAttachments,
 			})
 			if err != nil {
@@ -227,9 +228,6 @@ The project must already exist (create with: heroctl projects create <name>).`,
 
 	cmd.Flags().StringVar(&projectName, "project", "", "Project name to deploy to (required)")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt (for CI/non-interactive use)")
-	cmd.Flags().BoolVar(&private, "private", false, "Deploy as internal-only (no public relay, no Traefik route)")
-	cmd.Flags().StringVar(&healthType, "health-type", "http", "Health check type: http or tcp")
-	cmd.Flags().IntVar(&healthPort, "health-port", 0, "Health check port (0 = use service port)")
 	_ = cmd.MarkFlagRequired("project")
 
 	return cmd
