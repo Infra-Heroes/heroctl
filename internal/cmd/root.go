@@ -63,6 +63,7 @@ func newRootCmd() *cobra.Command {
 		deployCmd(&deps),
 		logsCmd(&deps),
 		volumesCmd(&deps),
+		secretsCmd(&deps),
 		versionCmd(),
 	)
 

@@ -46,6 +46,15 @@ type DeployConfig struct {
 	HealthPath string `toml:"health_path"`
 	// ScaleToZero enables automatic shutdown of the app when idle (default false).
 	ScaleToZero bool `toml:"scale_to_zero"`
+	// Private marks the deployment as internal-only (no public relay, no Traefik route).
+	// Default false (public).
+	Private bool `toml:"private"`
+	// HealthCheckType is the Nomad health check protocol: "http" or "tcp".
+	// Empty string defaults to "http".
+	HealthCheckType string `toml:"health_check_type"`
+	// HealthCheckPort is the port used for health checks.
+	// 0 means use the Port field.
+	HealthCheckPort int `toml:"health_check_port"`
 }
 
 // Parse reads and validates a hero.toml from r.
@@ -77,6 +86,18 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 	}
 	if cfg.Env == nil {
 		cfg.Env = make(map[string]string)
+	}
+
+	// Validate health_check_type.
+	switch cfg.Deploy.HealthCheckType {
+	case "", "http", "tcp":
+		// valid
+	default:
+		return nil, fmt.Errorf("hero.toml: [deploy] health_check_type must be \"http\" or \"tcp\" (got %q)", cfg.Deploy.HealthCheckType)
+	}
+	// Validate health_check_port.
+	if cfg.Deploy.HealthCheckPort < 0 {
+		return nil, fmt.Errorf("hero.toml: [deploy] health_check_port must be >= 0 (got %d)", cfg.Deploy.HealthCheckPort)
 	}
 
 	// Validate volume blocks.

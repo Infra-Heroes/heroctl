@@ -67,16 +67,17 @@ type Project struct {
 // ID is the UUID — the canonical deployment identifier (not shown to users).
 // Users interact with deployments by AppName within a project.
 type Deployment struct {
-	ID        string `json:"ID"`
-	ProjectID string `json:"ProjectID"`
-	AppName   string `json:"AppName"`
-	Image     string `json:"Image"`
-	Status    string `json:"Status"`
-	CPU       int32  `json:"Cpu"`
-	MemoryMB  int32  `json:"MemoryMb"`
-	Port      int32  `json:"Port"`
-	Hostname  string `json:"Hostname"`
-	CreatedAt string `json:"CreatedAt"`
+	ID           string `json:"ID"`
+	ProjectID    string `json:"ProjectID"`
+	AppName      string `json:"AppName"`
+	Image        string `json:"Image"`
+	Status       string `json:"Status"`
+	CPU          int32  `json:"Cpu"`
+	MemoryMB     int32  `json:"MemoryMb"`
+	Port         int32  `json:"Port"`
+	Hostname     string `json:"Hostname"`
+	ServiceScope string `json:"ServiceScope"`
+	CreatedAt    string `json:"CreatedAt"`
 }
 
 // DeploymentCreated is the response from POST /api/v1/projects/{id}/deployments.
@@ -101,20 +102,24 @@ type VolumeAttachment struct {
 
 // CreateDeploymentRequest is the body for POST /api/v1/projects/{id}/deployments.
 type CreateDeploymentRequest struct {
-	AppName     string            `json:"app_name"`
-	Image       string            `json:"image"`
-	CPU         int               `json:"cpu"`
-	MemoryMB    int               `json:"memory_mb"`
-	Port        int               `json:"port"`
-	Env         map[string]string `json:"env"`
-	HealthPath  string            `json:"health_path"`
-	ScaleToZero bool              `json:"scale_to_zero"`
-	Volumes     []VolumeAttachment `json:"volumes,omitempty"`
+	AppName         string            `json:"app_name"`
+	Image           string            `json:"image"`
+	CPU             int               `json:"cpu"`
+	MemoryMB        int               `json:"memory_mb"`
+	Port            int               `json:"port"`
+	Env             map[string]string `json:"env"`
+	HealthPath      string            `json:"health_path"`
+	ScaleToZero     bool              `json:"scale_to_zero"`
+	ServiceScope    string            `json:"service_scope,omitempty"`
+	HealthCheckType string            `json:"health_check_type,omitempty"`
+	HealthCheckPort int               `json:"health_check_port,omitempty"`
+	Volumes         []VolumeAttachment `json:"volumes,omitempty"`
 }
 
 // DeploymentStatus is the response from GET /api/v1/projects/{id}/deployments/{id}/status.
 type DeploymentStatus struct {
 	NomadStatus string `json:"nomad_status"`
+	Healthy     bool   `json:"healthy"`
 }
 
 // Secret represents a secret key (value is never returned by the API).
@@ -213,15 +218,15 @@ func (c *Client) GetDeployment(ctx context.Context, projectID, appName string) (
 		nil, &out)
 }
 
-// GetDeploymentStatus returns the live Nomad job status for the active deployment of an app.
-func (c *Client) GetDeploymentStatus(ctx context.Context, projectID, appName string) (string, error) {
+// GetDeploymentStatus returns the live status for the active deployment of an app.
+func (c *Client) GetDeploymentStatus(ctx context.Context, projectID, appName string) (*DeploymentStatus, error) {
 	var out DeploymentStatus
 	if err := c.do(ctx, http.MethodGet,
 		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/status",
 		nil, &out); err != nil {
-		return "", err
+		return nil, err
 	}
-	return out.NomadStatus, nil
+	return &out, nil
 }
 
 // CreateDeployment submits a new deployment.
@@ -262,16 +267,16 @@ func (c *Client) RestartDeployment(ctx context.Context, projectID, appName strin
 		nil, &out)
 }
 
-// SetSecret creates or updates a secret.
-func (c *Client) SetSecret(ctx context.Context, key, value string) error {
-	return c.do(ctx, http.MethodPost, "/api/v1/secrets",
+// SetSecret creates or updates a secret for a project.
+func (c *Client) SetSecret(ctx context.Context, projectID, key, value string) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/projects/"+projectID+"/secrets",
 		map[string]string{"key": key, "value": value}, nil)
 }
 
-// ListSecrets returns all secret keys for the authenticated org.
-func (c *Client) ListSecrets(ctx context.Context) ([]Secret, error) {
+// ListSecrets returns all secret keys for a project (values are never returned).
+func (c *Client) ListSecrets(ctx context.Context, projectID string) ([]Secret, error) {
 	var out []Secret
-	if err := c.do(ctx, http.MethodGet, "/api/v1/secrets", nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/api/v1/projects/"+projectID+"/secrets", nil, &out); err != nil {
 		return nil, err
 	}
 	if out == nil {
@@ -280,9 +285,9 @@ func (c *Client) ListSecrets(ctx context.Context) ([]Secret, error) {
 	return out, nil
 }
 
-// DeleteSecret removes a secret by key.
-func (c *Client) DeleteSecret(ctx context.Context, key string) error {
-	return c.do(ctx, http.MethodDelete, "/api/v1/secrets/"+key, nil, nil)
+// DeleteSecret removes a secret by key from a project.
+func (c *Client) DeleteSecret(ctx context.Context, projectID, key string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/projects/"+projectID+"/secrets/"+key, nil, nil)
 }
 
 // RegistryCredentials obtains short-lived docker registry credentials.
