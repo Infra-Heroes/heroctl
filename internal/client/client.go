@@ -267,16 +267,16 @@ func (c *Client) RestartDeployment(ctx context.Context, projectID, appName strin
 		nil, &out)
 }
 
-// SetSecret creates or updates a secret.
-func (c *Client) SetSecret(ctx context.Context, key, value string) error {
-	return c.do(ctx, http.MethodPost, "/api/v1/secrets",
+// SetSecret creates or updates a secret for a project.
+func (c *Client) SetSecret(ctx context.Context, projectID, key, value string) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/projects/"+projectID+"/secrets",
 		map[string]string{"key": key, "value": value}, nil)
 }
 
-// ListSecrets returns all secret keys for the authenticated org.
-func (c *Client) ListSecrets(ctx context.Context) ([]Secret, error) {
+// ListSecrets returns all secret keys for a project (values are never returned).
+func (c *Client) ListSecrets(ctx context.Context, projectID string) ([]Secret, error) {
 	var out []Secret
-	if err := c.do(ctx, http.MethodGet, "/api/v1/secrets", nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/api/v1/projects/"+projectID+"/secrets", nil, &out); err != nil {
 		return nil, err
 	}
 	if out == nil {
@@ -285,9 +285,9 @@ func (c *Client) ListSecrets(ctx context.Context) ([]Secret, error) {
 	return out, nil
 }
 
-// DeleteSecret removes a secret by key.
-func (c *Client) DeleteSecret(ctx context.Context, key string) error {
-	return c.do(ctx, http.MethodDelete, "/api/v1/secrets/"+key, nil, nil)
+// DeleteSecret removes a secret by key from a project.
+func (c *Client) DeleteSecret(ctx context.Context, projectID, key string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/projects/"+projectID+"/secrets/"+key, nil, nil)
 }
 
 // RegistryCredentials obtains short-lived docker registry credentials.
