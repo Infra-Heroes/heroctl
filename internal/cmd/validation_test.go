@@ -90,3 +90,28 @@ func TestValidateAppName(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateLabels(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   map[string]string
+		wantErr bool
+	}{
+		{name: "empty", input: map[string]string{}, wantErr: false},
+		{name: "simple", input: map[string]string{"foo": "bar"}, wantErr: false},
+		{name: "multiple", input: map[string]string{"foo": "bar", "metrics.scrape": "true"}, wantErr: false},
+		{name: "empty key", input: map[string]string{"": "bar"}, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateLabels(tt.input)
+			if tt.wantErr && err == nil {
+				t.Errorf("expected error for input %v, got nil", tt.input)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error for input %v: %v", tt.input, err)
+			}
+		})
+	}
+}

@@ -16,6 +16,7 @@ type HeroConfig struct {
 	App     AppConfig         `toml:"app"`
 	Deploy  DeployConfig      `toml:"deploy"`
 	Env     map[string]string `toml:"env"`
+	Labels  map[string]string `toml:"labels"`
 	Volumes []VolumeConfig    `toml:"volumes"`
 }
 
@@ -86,6 +87,9 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 	}
 	if cfg.Env == nil {
 		cfg.Env = make(map[string]string)
+	}
+	if cfg.Labels == nil {
+		cfg.Labels = make(map[string]string)
 	}
 
 	// Validate health_check_type.
