@@ -15,6 +15,18 @@ import (
 	"github.com/Infra-Heroes/heroctl/internal/toml"
 )
 
+var lookPathFunc = exec.LookPath
+
+func detectContainerEngine() (string, error) {
+	if _, err := lookPathFunc("docker"); err == nil {
+		return "docker", nil
+	}
+	if _, err := lookPathFunc("podman"); err == nil {
+		return "podman", nil
+	}
+	return "", fmt.Errorf("neither docker nor podman found in PATH")
+}
+
 const deployTimeout = 5 * time.Minute
 
 func deployCmd(deps *Deps) *cobra.Command {
@@ -69,11 +81,17 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return fmt.Errorf("get registry credentials: %w", err)
 			}
 
-			// 5. docker login via stdin to avoid credentials appearing in process list.
+			// Detect container engine
+			engine, err := detectContainerEngine()
+			if err != nil {
+				return err
+			}
+
+			// 5. docker/podman login via stdin to avoid credentials appearing in process list.
 			// hero-api proxies /v2/ — push to the API host, not the backend registry.
 			registry := strings.TrimPrefix(strings.TrimPrefix(build.ServerURL, "https://"), "http://")
-			fmt.Printf("Logging into registry %s...\n", registry)
-			loginCmd := exec.CommandContext(ctx, "docker", "login", registry,
+			fmt.Printf("Logging into registry %s with %s...\n", registry, engine)
+			loginCmd := exec.CommandContext(ctx, engine, "login", registry,
 				"--username", creds.Username, "--password-stdin")
 			loginCmd.Stdin = strings.NewReader(creds.Password)
 			loginCmd.Stdout = os.Stdout
@@ -93,7 +111,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			// 7. Build image: {registry}/{orgName}/{projectName}:{imageTag}
 			image := fmt.Sprintf("%s/%s/%s:%s", registry, org.Name, project.Name, imageTag)
 			fmt.Printf("Building %s...\n", image)
-			buildCmd := exec.CommandContext(ctx, "docker", "build", "--platform", "linux/amd64", "-t", image, ".")
+			buildCmd := exec.CommandContext(ctx, engine, "build", "--platform", "linux/amd64", "-t", image, ".")
 			buildCmd.Stdout = os.Stdout
 			buildCmd.Stderr = os.Stderr
 			if err := buildCmd.Run(); err != nil {
@@ -102,7 +120,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 
 			// 8. Push image.
 			fmt.Printf("Pushing %s...\n", image)
-			pushCmd := exec.CommandContext(ctx, "docker", "push", image)
+			pushCmd := exec.CommandContext(ctx, engine, "push", image)
 			pushCmd.Stdout = os.Stdout
 			pushCmd.Stderr = os.Stderr
 			if err := pushCmd.Run(); err != nil {
