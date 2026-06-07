@@ -29,3 +29,13 @@ func validateEnv(env map[string]string) error {
 	}
 	return nil
 }
+
+// validateLabels returns an error if any key is empty.
+func validateLabels(labels map[string]string) error {
+	for k := range labels {
+		if k == "" {
+			return fmt.Errorf("label key cannot be empty")
+		}
+	}
+	return nil
+}

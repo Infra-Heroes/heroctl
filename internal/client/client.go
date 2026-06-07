@@ -67,31 +67,33 @@ type Project struct {
 // ID is the UUID — the canonical deployment identifier (not shown to users).
 // Users interact with deployments by AppName within a project.
 type Deployment struct {
-	ID           string `json:"ID"`
-	ProjectID    string `json:"ProjectID"`
-	AppName      string `json:"AppName"`
-	Image        string `json:"Image"`
-	Status       string `json:"Status"`
-	CPU          int32  `json:"Cpu"`
-	MemoryMB     int32  `json:"MemoryMb"`
-	Port         int32  `json:"Port"`
-	Hostname     string `json:"Hostname"`
-	ServiceScope string `json:"ServiceScope"`
-	CreatedAt    string `json:"CreatedAt"`
+	ID           string            `json:"ID"`
+	ProjectID    string            `json:"ProjectID"`
+	AppName      string            `json:"AppName"`
+	Image        string            `json:"Image"`
+	Status       string            `json:"Status"`
+	CPU          int32             `json:"Cpu"`
+	MemoryMB     int32             `json:"MemoryMb"`
+	Port         int32             `json:"Port"`
+	Hostname     string            `json:"Hostname"`
+	ServiceScope string            `json:"ServiceScope"`
+	Labels       map[string]string `json:"Labels,omitempty"`
+	CreatedAt    string            `json:"CreatedAt"`
 }
 
 // DeploymentCreated is the response from POST /api/v1/projects/{id}/deployments.
 type DeploymentCreated struct {
-	ID         string `json:"id"`
-	ProjectID  string `json:"project_id"`
-	AppName    string `json:"app_name"`
-	Image      string `json:"image"`
-	Status     string `json:"status"`
-	NomadJobID string `json:"nomad_job_id"`
-	CPU        int64  `json:"cpu"`
-	MemoryMB   int64  `json:"memory_mb"`
-	Port       int64  `json:"port"`
-	Hostname   string `json:"hostname"`
+	ID         string            `json:"id"`
+	ProjectID  string            `json:"project_id"`
+	AppName    string            `json:"app_name"`
+	Image      string            `json:"image"`
+	Status     string            `json:"status"`
+	NomadJobID string            `json:"nomad_job_id"`
+	CPU        int64             `json:"cpu"`
+	MemoryMB   int64             `json:"memory_mb"`
+	Port       int64             `json:"port"`
+	Hostname   string            `json:"hostname"`
+	Labels     map[string]string `json:"labels,omitempty"`
 }
 
 // VolumeAttachment describes a volume to attach to a deployment.
@@ -108,6 +110,7 @@ type CreateDeploymentRequest struct {
 	MemoryMB        int               `json:"memory_mb"`
 	Port            int               `json:"port"`
 	Env             map[string]string `json:"env"`
+	Labels          map[string]string `json:"labels,omitempty"`
 	HealthPath      string            `json:"health_path"`
 	ScaleToZero     bool              `json:"scale_to_zero"`
 	ServiceScope    string            `json:"service_scope,omitempty"`

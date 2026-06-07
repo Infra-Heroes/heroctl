@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -74,6 +75,13 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 			fmt.Printf("CPU:       %d\n", d.CPU)
 			fmt.Printf("Memory MB: %d\n", d.MemoryMB)
 			fmt.Printf("Port:      %d\n", d.Port)
+			if len(d.Labels) > 0 {
+				var labelPairs []string
+				for k, v := range d.Labels {
+					labelPairs = append(labelPairs, fmt.Sprintf("%s=%s", k, v))
+				}
+				fmt.Printf("Labels:    %s\n", strings.Join(labelPairs, ", "))
+			}
 			fmt.Printf("Created:   %s\n", d.CreatedAt)
 			return nil
 		},
