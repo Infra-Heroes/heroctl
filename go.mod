@@ -3,7 +3,7 @@ module github.com/Infra-Heroes/heroctl
 go 1.26.1
 
 require (
-	github.com/pelletier/go-toml/v2 v2.3.0
+	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.41.0
 )
