@@ -3,8 +3,10 @@ when:
 
 steps:
   lint:
-    image: golangci/golangci-lint:v1.64-alpine
+    image: golang:1.26-alpine
     commands:
+      - apk add --no-cache git build-base
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       - golangci-lint run --verbose --timeout 5m
 
   security:
