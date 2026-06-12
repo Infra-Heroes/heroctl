@@ -96,7 +96,7 @@ jobs:
             -o heroctl-${{ matrix.goos }}-${{ matrix.goarch }} \
             ./cmd/heroctl
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: heroctl-${{ matrix.goos }}-${{ matrix.goarch }}
           path: heroctl-${{ matrix.goos }}-${{ matrix.goarch }}
