@@ -79,21 +79,27 @@ type Deployment struct {
 	ServiceScope string            `json:"ServiceScope"`
 	Labels       map[string]string `json:"Labels,omitempty"`
 	CreatedAt    string            `json:"CreatedAt"`
+	MinReplicas  int32             `json:"MinReplicas"`
+	MaxReplicas  int32             `json:"MaxReplicas"`
+	Replicas     int32             `json:"Replicas"`
 }
 
 // DeploymentCreated is the response from POST /api/v1/projects/{id}/deployments.
 type DeploymentCreated struct {
-	ID         string            `json:"id"`
-	ProjectID  string            `json:"project_id"`
-	AppName    string            `json:"app_name"`
-	Image      string            `json:"image"`
-	Status     string            `json:"status"`
-	NomadJobID string            `json:"nomad_job_id"`
-	CPU        int64             `json:"cpu"`
-	MemoryMB   int64             `json:"memory_mb"`
-	Port       int64             `json:"port"`
-	Hostname   string            `json:"hostname"`
-	Labels     map[string]string `json:"labels,omitempty"`
+	ID          string            `json:"id"`
+	ProjectID   string            `json:"project_id"`
+	AppName     string            `json:"app_name"`
+	Image       string            `json:"image"`
+	Status      string            `json:"status"`
+	NomadJobID  string            `json:"nomad_job_id"`
+	CPU         int64             `json:"cpu"`
+	MemoryMB    int64             `json:"memory_mb"`
+	Port        int64             `json:"port"`
+	Hostname    string            `json:"hostname"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	MinReplicas int64             `json:"min_replicas"`
+	MaxReplicas int64             `json:"max_replicas"`
+	Replicas    int64             `json:"replicas"`
 }
 
 // VolumeAttachment describes a volume to attach to a deployment.
@@ -104,19 +110,21 @@ type VolumeAttachment struct {
 
 // CreateDeploymentRequest is the body for POST /api/v1/projects/{id}/deployments.
 type CreateDeploymentRequest struct {
-	AppName         string            `json:"app_name"`
-	Image           string            `json:"image"`
-	CPU             int               `json:"cpu"`
-	MemoryMB        int               `json:"memory_mb"`
-	Port            int               `json:"port"`
-	Env             map[string]string `json:"env"`
-	Labels          map[string]string `json:"labels,omitempty"`
-	HealthPath      string            `json:"health_path"`
-	ScaleToZero     bool              `json:"scale_to_zero"`
-	ServiceScope    string            `json:"service_scope,omitempty"`
-	HealthCheckType string            `json:"health_check_type,omitempty"`
-	HealthCheckPort int               `json:"health_check_port,omitempty"`
+	AppName         string             `json:"app_name"`
+	Image           string             `json:"image"`
+	CPU             int                `json:"cpu"`
+	MemoryMB        int                `json:"memory_mb"`
+	Port            int                `json:"port"`
+	Env             map[string]string  `json:"env"`
+	Labels          map[string]string  `json:"labels,omitempty"`
+	HealthPath      string             `json:"health_path"`
+	ScaleToZero     bool               `json:"scale_to_zero"`
+	ServiceScope    string             `json:"service_scope,omitempty"`
+	HealthCheckType string             `json:"health_check_type,omitempty"`
+	HealthCheckPort int                `json:"health_check_port,omitempty"`
 	Volumes         []VolumeAttachment `json:"volumes,omitempty"`
+	MinReplicas     int                `json:"min_replicas"`
+	MaxReplicas     int                `json:"max_replicas"`
 }
 
 // DeploymentStatus is the response from GET /api/v1/projects/{id}/deployments/{id}/status.

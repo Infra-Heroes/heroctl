@@ -71,3 +71,65 @@ health_path = "/health"
 		t.Errorf("expected Labels map to be empty, got size %d", len(cfg.Labels))
 	}
 }
+
+func TestParse_Scaling(t *testing.T) {
+	tomlContent := `
+[app]
+name = "my-app"
+
+[deploy]
+health_path = "/health"
+min_replicas = 2
+max_replicas = 5
+`
+
+	cfg, err := Parse(strings.NewReader(tomlContent))
+	if err != nil {
+		t.Fatalf("unexpected error parsing hero.toml: %v", err)
+	}
+
+	if cfg.Deploy.MinReplicas != 2 {
+		t.Errorf("expected MinReplicas to be 2, got %d", cfg.Deploy.MinReplicas)
+	}
+	if cfg.Deploy.MaxReplicas != 5 {
+		t.Errorf("expected MaxReplicas to be 5, got %d", cfg.Deploy.MaxReplicas)
+	}
+
+	// Test default scaling values
+	tomlContentDefaults := `
+[app]
+name = "my-app"
+
+[deploy]
+health_path = "/health"
+`
+	cfgDefaults, err := Parse(strings.NewReader(tomlContentDefaults))
+	if err != nil {
+		t.Fatalf("unexpected error parsing hero.toml: %v", err)
+	}
+	if cfgDefaults.Deploy.MinReplicas != 1 {
+		t.Errorf("expected default MinReplicas to be 1, got %d", cfgDefaults.Deploy.MinReplicas)
+	}
+	if cfgDefaults.Deploy.MaxReplicas != 1 {
+		t.Errorf("expected default MaxReplicas to be 1, got %d", cfgDefaults.Deploy.MaxReplicas)
+	}
+
+	// Test max_replicas < min_replicas adjustments
+	tomlContentInvalidRange := `
+[app]
+name = "my-app"
+
+[deploy]
+health_path = "/health"
+min_replicas = 4
+max_replicas = 2
+`
+	cfgRange, err := Parse(strings.NewReader(tomlContentInvalidRange))
+	if err != nil {
+		t.Fatalf("unexpected error parsing hero.toml: %v", err)
+	}
+	if cfgRange.Deploy.MaxReplicas != 4 {
+		t.Errorf("expected MaxReplicas to be adjusted to MinReplicas (4), got %d", cfgRange.Deploy.MaxReplicas)
+	}
+}
+

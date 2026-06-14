@@ -56,6 +56,10 @@ type DeployConfig struct {
 	// HealthCheckPort is the port used for health checks.
 	// 0 means use the Port field.
 	HealthCheckPort int `toml:"health_check_port"`
+	// MinReplicas is the minimum number of replicas (default 1).
+	MinReplicas int `toml:"min_replicas"`
+	// MaxReplicas is the maximum number of replicas (default 1).
+	MaxReplicas int `toml:"max_replicas"`
 }
 
 // Parse reads and validates a hero.toml from r.
@@ -81,6 +85,15 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 	}
 	if cfg.Deploy.Port <= 0 {
 		cfg.Deploy.Port = 8080
+	}
+	if cfg.Deploy.MinReplicas <= 0 {
+		cfg.Deploy.MinReplicas = 1
+	}
+	if cfg.Deploy.MaxReplicas <= 0 {
+		cfg.Deploy.MaxReplicas = 1
+	}
+	if cfg.Deploy.MaxReplicas < cfg.Deploy.MinReplicas {
+		cfg.Deploy.MaxReplicas = cfg.Deploy.MinReplicas
 	}
 	if cfg.Deploy.HealthPath == "" {
 		return nil, fmt.Errorf("hero.toml: [deploy] health_path is required")

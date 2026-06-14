@@ -192,6 +192,8 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				HealthCheckType: healthCheckType,
 				HealthCheckPort: heroCfg.Deploy.HealthCheckPort,
 				Volumes:         volumeAttachments,
+				MinReplicas:     heroCfg.Deploy.MinReplicas,
+				MaxReplicas:     heroCfg.Deploy.MaxReplicas,
 			})
 			if err != nil {
 				if strings.Contains(err.Error(), "vm cap") {
