@@ -1,9 +1,9 @@
 BINARY     := heroctl
 GO         := go
 GOFLAGS    ?=
-SERVER_URL  ?= https://api.hero.example.com
-AUTH_DOMAIN ?= auth.example.com
-CLIENT_ID   ?=
+SERVER_URL  ?= $(or $(HERO_SERVER_URL),https://api.hero.example.com)
+AUTH_DOMAIN ?= $(or $(HERO_AUTH_DOMAIN),auth.example.com)
+CLIENT_ID   ?= $(HERO_CLIENT_ID)
 
 GOLANGCI_LINT_VERSION := latest
 
