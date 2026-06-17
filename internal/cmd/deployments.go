@@ -34,14 +34,18 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 				return nil
 			}
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			_, _ = fmt.Fprintln(w, "APP\tSTATUS\tSCOPE\tHOSTNAME\tIMAGE\tCPU\tMEM(MB)\tPORT\tCREATED")
+			_, _ = fmt.Fprintln(w, "APP\tSTATUS\tREPLICAS\tSCOPE\tHOSTNAME\tIMAGE\tCPU\tMEM(MB)\tPORT\tCREATED")
 			for _, d := range ds {
 				scope := d.ServiceScope
 				if scope == "" {
 					scope = "public"
 				}
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\n",
-					d.AppName, d.Status, scope, d.Hostname, d.Image, d.CPU, d.MemoryMB, d.Port, d.CreatedAt)
+				replicasStr := fmt.Sprintf("%d", d.Replicas)
+				if d.MinReplicas != d.MaxReplicas {
+					replicasStr = fmt.Sprintf("%d/%d-%d", d.Replicas, d.MinReplicas, d.MaxReplicas)
+				}
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\n",
+					d.AppName, d.Status, replicasStr, scope, d.Hostname, d.Image, d.CPU, d.MemoryMB, d.Port, d.CreatedAt)
 			}
 			return w.Flush()
 		},
@@ -69,6 +73,7 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 			}
 			fmt.Printf("App:       %s\n", d.AppName)
 			fmt.Printf("Status:    %s\n", d.Status)
+			fmt.Printf("Replicas:  %d (min: %d, max: %d)\n", d.Replicas, d.MinReplicas, d.MaxReplicas)
 			fmt.Printf("Scope:     %s\n", scope)
 			fmt.Printf("Hostname:  %s\n", d.Hostname)
 			fmt.Printf("Image:     %s\n", d.Image)
