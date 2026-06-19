@@ -96,7 +96,11 @@ The project must already exist (create with: heroctl projects create <name>).`,
 
 			// 5. docker/podman login via stdin to avoid credentials appearing in process list.
 			// hero-api proxies /v2/ — push to the API host, not the backend registry.
-			registry := strings.TrimPrefix(strings.TrimPrefix(build.ServerURL, "https://"), "http://")
+			serverURL := build.ServerURL
+			if envURL := os.Getenv("HERO_API_URL"); envURL != "" {
+				serverURL = envURL
+			}
+			registry := strings.TrimPrefix(strings.TrimPrefix(serverURL, "https://"), "http://")
 			fmt.Printf("Logging into registry %s with %s...\n", registry, engine)
 			loginCmd := exec.CommandContext(ctx, engine, "login", registry,
 				"--username", creds.Username, "--password-stdin")
@@ -202,6 +206,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				MinReplicas:     heroCfg.Deploy.MinReplicas,
 				MaxReplicas:     heroCfg.Deploy.MaxReplicas,
 			})
+			fmt.Printf("DEPLOYMENT REQUEST LABELS: %+v\n", heroCfg.Labels)
 			if err != nil {
 				if strings.Contains(err.Error(), "vm cap") {
 					return fmt.Errorf("%s — stop or delete an existing deployment first with: heroctl deployments list --project %s", err, projectName)
