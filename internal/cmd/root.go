@@ -58,7 +58,11 @@ func newRootCmd() *cobra.Command {
 				}
 			}
 			deps.Token = tok
-			deps.Client = client.New(build.ServerURL, build.AuthDomain, build.ClientID, tok)
+			serverURL := build.ServerURL
+			if envURL := os.Getenv("HERO_API_URL"); envURL != "" {
+				serverURL = envURL
+			}
+			deps.Client = client.New(serverURL, build.AuthDomain, build.ClientID, tok)
 			return nil
 		},
 	}
