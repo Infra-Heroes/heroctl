@@ -67,7 +67,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				if heroCfg.Labels == nil {
 					heroCfg.Labels = make(map[string]string)
 				}
-				heroCfg.Labels["hero.custom_domains"] = strings.Join(heroCfg.App.CustomDomains, ",")
+				heroCfg.Labels["hero-custom-domains"] = strings.Join(heroCfg.App.CustomDomains, ",")
 			}
 
 			// 2. Get org (needed for image namespace).
