@@ -76,6 +76,7 @@ func newRootCmd() *cobra.Command {
 		logsCmd(&deps),
 		volumesCmd(&deps),
 		secretsCmd(&deps),
+		tokensCmd(&deps),
 		versionCmd(),
 	)
 
