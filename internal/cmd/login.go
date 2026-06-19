@@ -13,10 +13,24 @@ import (
 )
 
 func loginCmd() *cobra.Command {
-	return &cobra.Command{
+	var tokenFlag string
+	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Authenticate via device code flow",
+		Short: "Authenticate via device code flow or token",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if tokenFlag != "" {
+				tok := &auth.Token{
+					AccessToken: tokenFlag,
+					TokenType:   "Bearer",
+					Expiry:      time.Now().Add(365 * 24 * time.Hour),
+				}
+				if err := auth.Save(tok); err != nil {
+					return fmt.Errorf("save token: %w", err)
+				}
+				fmt.Println("Successfully logged in via token.")
+				return nil
+			}
+
 			if build.AuthDomain == "" || build.ClientID == "" {
 				return fmt.Errorf("binary is not configured — build with -ldflags to set AuthDomain and ClientID")
 			}
@@ -52,4 +66,6 @@ func loginCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&tokenFlag, "token", "", "Authenticate using a personal access token")
+	return cmd
 }
