@@ -4,6 +4,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -29,6 +30,7 @@ func Execute() {
 
 func newRootCmd() *cobra.Command {
 	var deps Deps
+	var tokenFlag string
 
 	root := &cobra.Command{
 		Use:           "heroctl",
@@ -41,9 +43,19 @@ func newRootCmd() *cobra.Command {
 				return nil
 			}
 
-			tok, err := auth.Load()
-			if err != nil {
-				return err
+			var tok *auth.Token
+			var err error
+			if tokenFlag != "" {
+				tok = &auth.Token{
+					AccessToken: tokenFlag,
+					TokenType:   "Bearer",
+					Expiry:      time.Now().Add(365 * 24 * time.Hour),
+				}
+			} else {
+				tok, err = auth.Load()
+				if err != nil {
+					return err
+				}
 			}
 			deps.Token = tok
 			deps.Client = client.New(build.ServerURL, build.AuthDomain, build.ClientID, tok)
@@ -66,6 +78,8 @@ func newRootCmd() *cobra.Command {
 		secretsCmd(&deps),
 		versionCmd(),
 	)
+
+	root.PersistentFlags().StringVar(&tokenFlag, "token", "", "Authenticate using a personal access token")
 
 	return root
 }
