@@ -307,6 +307,49 @@ func (c *Client) RegistryCredentials(ctx context.Context) (*RegistryCreds, error
 	return &out, c.do(ctx, http.MethodPost, "/api/v1/registry/credentials", nil, &out)
 }
 
+// PAT represents a personal access token metadata.
+type PAT struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Scope      string `json:"scope"`
+	CreatedAt  string `json:"created_at"`
+	LastUsedAt string `json:"last_used_at,omitempty"`
+}
+
+// PATCreated represents a newly created PAT, containing the raw token.
+type PATCreated struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Scope     string `json:"scope"`
+	Token     string `json:"token"`
+	CreatedAt string `json:"created_at"`
+}
+
+// CreatePAT creates a new Personal Access Token.
+func (c *Client) CreatePAT(ctx context.Context, name, scope string) (*PATCreated, error) {
+	var out PATCreated
+	return &out, c.do(ctx, http.MethodPost, "/api/v1/tokens",
+		map[string]string{"name": name, "scope": scope}, &out)
+}
+
+// ListPATs returns all Personal Access Tokens for the user.
+func (c *Client) ListPATs(ctx context.Context) ([]PAT, error) {
+	var out []PAT
+	if err := c.do(ctx, http.MethodGet, "/api/v1/tokens", nil, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = []PAT{}
+	}
+	return out, nil
+}
+
+// DeletePAT deletes/revokes a Personal Access Token by ID.
+func (c *Client) DeletePAT(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/tokens/"+id, nil, nil)
+}
+
+
 // ── Volumes ───────────────────────────────────────────────────────────────────
 
 // Volume represents a Ceph RBD volume owned by a project.
