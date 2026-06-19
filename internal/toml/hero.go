@@ -32,7 +32,8 @@ type VolumeConfig struct {
 type AppConfig struct {
 	// Name is the app name used as the public subdomain (e.g. "my-app" → my-app.infra-heroes.de).
 	// Must be lowercase and contain only letters, digits, and hyphens.
-	Name string `toml:"name"`
+	Name          string   `toml:"name"`
+	CustomDomains []string `toml:"custom_domains"`
 }
 
 // DeployConfig holds deployment resource configuration.
