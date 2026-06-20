@@ -1,0 +1,26 @@
+name: 'heroctl Deploy'
+description: 'Deploy your applications seamlessly using InfraHeroes heroctl'
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
+inputs:
+  project:
+    description: 'The name of the project to deploy'
+    required: true
+  token:
+    description: 'Personal Access Token (PAT) for authentication'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Run heroctl deployment
+      shell: bash
+      run: |
+        echo "🚀 Deploying project '${{ inputs.project }}' using heroctl..."
+        docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v $GITHUB_WORKSPACE:/workspace \
+          -w /workspace \
+          ghcr.io/infra-heroes/heroctl:latest \
+          deploy --project ${{ inputs.project }} --yes --token ${{ inputs.token }}
+        echo "✅ Deployment submitted successfully!"
