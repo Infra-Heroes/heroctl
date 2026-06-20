@@ -56,3 +56,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            SERVER_URL=${{ secrets.SERVER_URL }}
+            AUTH_DOMAIN=${{ secrets.AUTH_DOMAIN }}
+            CLIENT_ID=${{ secrets.CLIENT_ID }}
