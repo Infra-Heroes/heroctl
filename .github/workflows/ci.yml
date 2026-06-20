@@ -75,6 +75,10 @@ jobs:
             goarch: amd64
           - goos: darwin
             goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -87,19 +91,23 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            EXT=".exe"
+          fi
           go build -trimpath \
             -ldflags "-s -w \
               -X github.com/Infra-Heroes/heroctl/internal/build.ServerURL=${{ secrets.SERVER_URL }} \
               -X github.com/Infra-Heroes/heroctl/internal/build.AuthDomain=${{ secrets.AUTH_DOMAIN }} \
               -X github.com/Infra-Heroes/heroctl/internal/build.ClientID=${{ secrets.CLIENT_ID }} \
               -X github.com/Infra-Heroes/heroctl/internal/build.Version=${{ github.ref_name }}" \
-            -o heroctl-${{ matrix.goos }}-${{ matrix.goarch }} \
+            -o heroctl-${{ matrix.goos }}-${{ matrix.goarch }}$EXT \
             ./cmd/heroctl
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: heroctl-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: heroctl-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: heroctl-${{ matrix.goos }}-${{ matrix.goarch }}*
           retention-days: 7
 
   release:
