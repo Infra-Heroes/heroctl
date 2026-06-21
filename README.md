@@ -29,7 +29,7 @@ Manage your MicroVM deployments, volumes, secrets, and configurations effortless
 Get started with `heroctl` in seconds using Homebrew:
 
 ```bash
-curl -sL https://install.infra-heroes.de | bash
+curl -sL https://infra-heroes.de/install.sh | bash
 ```
 
 *(For other platforms, you can download the binaries directly from the [GitHub Releases](https://github.com/Infra-Heroes/heroctl/releases) page).*
