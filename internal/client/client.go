@@ -703,7 +703,7 @@ func (c *Client) SSHDeployment(ctx context.Context, projectID, appName, cmdParam
 		"Connection: Upgrade\r\n\r\n", path, u.Host, c.token.AccessToken)
 
 	if _, err := conn.Write([]byte(req)); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("write HTTP request: %w", err)
 	}
 
@@ -711,14 +711,14 @@ func (c *Client) SSHDeployment(ctx context.Context, projectID, appName, cmdParam
 	reader := bufio.NewReader(conn)
 	resp, err := http.ReadResponse(reader, nil)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("read HTTP response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusSwitchingProtocols && resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		body, _ := io.ReadAll(resp.Body)
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to hijack connection: status %d, body: %s", resp.StatusCode, string(body))
 	}
 

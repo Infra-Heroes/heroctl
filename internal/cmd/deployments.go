@@ -201,7 +201,7 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("ssh: %w", err)
 			}
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			// Put local terminal in raw mode to forward input/signals properly
 			fd := int(os.Stdin.Fd())

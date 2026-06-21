@@ -28,7 +28,7 @@ func sshCmd(deps *Deps) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("ssh: %w", err)
 			}
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			fd := int(os.Stdin.Fd())
 			if term.IsTerminal(fd) {
