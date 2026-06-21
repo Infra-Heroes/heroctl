@@ -282,6 +282,19 @@ func (c *Client) RestartDeployment(ctx context.Context, projectID, appName strin
 		nil, &out)
 }
 
+// UpdateDeploymentResources updates CPU and memory resource allocations for the named app's deployment.
+func (c *Client) UpdateDeploymentResources(ctx context.Context, projectID, appName string, cpu, memoryMB int) (*DeploymentCreated, error) {
+	var out DeploymentCreated
+	req := map[string]int{
+		"cpu":       cpu,
+		"memory_mb": memoryMB,
+	}
+	return &out, c.do(ctx, http.MethodPost,
+		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/resources",
+		req, &out)
+}
+
+
 // SetSecret creates or updates a secret for a project.
 func (c *Client) SetSecret(ctx context.Context, projectID, key, value string) error {
 	return c.do(ctx, http.MethodPost, "/api/v1/projects/"+projectID+"/secrets",
