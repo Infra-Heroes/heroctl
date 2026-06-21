@@ -1,39 +1,13 @@
 name: "Hero Validation"
-description: "Validates hero.toml configuration files"
+description: "Validates hero.toml configuration files using the heroctl Docker image"
 inputs:
   config_path:
     description: "Path to the hero.toml file"
     required: false
     default: "hero.toml"
-  version:
-    description: "Version of heroctl to use (e.g. latest, v0.1.0)"
-    required: false
-    default: "latest"
 runs:
-  using: "composite"
-  steps:
-    - name: Download heroctl
-      shell: bash
-      run: |
-        VERSION="${{ inputs.version }}"
-        if [ "$VERSION" = "latest" ]; then
-          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/Infra-Heroes/heroctl/releases/latest | jq -r '.assets[] | select(.name | contains("linux_amd64")) | .browser_download_url')
-        else
-          DOWNLOAD_URL="https://github.com/Infra-Heroes/heroctl/releases/download/${VERSION}/heroctl_${VERSION#v}_linux_amd64.tar.gz"
-        fi
-        
-        # fallback if not published yet, just install it via go if go is available
-        if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-          echo "Release not found, attempting to build from source"
-          git clone https://github.com/Infra-Heroes/heroctl.git /tmp/heroctl
-          cd /tmp/heroctl
-          go build -o /usr/local/bin/heroctl cmd/heroctl/main.go
-        else
-          curl -sL $DOWNLOAD_URL -o heroctl.tar.gz
-          tar -xzf heroctl.tar.gz heroctl
-          sudo mv heroctl /usr/local/bin/heroctl
-        fi
-
-    - name: Validate hero.toml
-      shell: bash
-      run: heroctl validate "${{ inputs.config_path }}"
+  using: "docker"
+  image: "Dockerfile"
+  args:
+    - "validate"
+    - "${{ inputs.config_path }}"
