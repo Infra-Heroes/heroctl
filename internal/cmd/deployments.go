@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func deploymentsCmd(deps *Deps) *cobra.Command {
@@ -182,6 +184,62 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 	restart.Flags().StringVar(&restartProject, "project", "", "Project name (required)")
 	_ = restart.MarkFlagRequired("project")
 
-	cmd.AddCommand(list, get, stop, del, start, restart)
+	var sshProject string
+	var sshCmd string
+	ssh := &cobra.Command{
+		Use:   "ssh <app>",
+		Short: "Start an interactive shell session in the active deployment container",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			project, err := resolveProject(cmd.Context(), deps, sshProject)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Connecting to shell for app %q in project %q...\n", args[0], project.Name)
+			conn, err := deps.Client.SSHDeployment(cmd.Context(), project.ID, args[0], sshCmd)
+			if err != nil {
+				return fmt.Errorf("ssh: %w", err)
+			}
+			defer conn.Close()
+
+			// Put local terminal in raw mode to forward input/signals properly
+			fd := int(os.Stdin.Fd())
+			if term.IsTerminal(fd) {
+				oldState, err := term.MakeRaw(fd)
+				if err != nil {
+					return fmt.Errorf("set raw terminal: %w", err)
+				}
+				defer func() { _ = term.Restore(fd, oldState) }()
+			}
+
+			// Bidirectional copy
+			errCh := make(chan error, 2)
+			go func() {
+				_, err := io.Copy(conn, os.Stdin)
+				errCh <- err
+			}()
+			go func() {
+				_, err := io.Copy(os.Stdout, conn)
+				errCh <- err
+			}()
+
+			// Wait for either copy to finish or error
+			select {
+			case <-cmd.Context().Done():
+				return cmd.Context().Err()
+			case err := <-errCh:
+				if err != nil && err != io.EOF {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+	ssh.Flags().StringVar(&sshProject, "project", "", "Project name (required)")
+	_ = ssh.MarkFlagRequired("project")
+	ssh.Flags().StringVar(&sshCmd, "cmd", "", "Command to execute (default /bin/sh)")
+
+	cmd.AddCommand(list, get, stop, del, start, restart, ssh)
 	return cmd
 }
