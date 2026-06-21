@@ -13,48 +13,30 @@ import (
 func sshCmd(deps *Deps) *cobra.Command {
 	var project string
 	var runCmd string
-	var storeMode bool
-	var storeURL string
 
 	cmd := &cobra.Command{
 		Use:   "ssh <target>",
 		Short: "Start an interactive shell session in the active deployment container",
 		Long: `Start an interactive shell session.
-In direct mode: heroctl ssh <app> --project <project>
-In store mode:  heroctl ssh <instance_id> --store`,
+In direct mode: heroctl ssh <app> --project <project>`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := args[0]
 			var conn net.Conn
 			var err error
 
-			if storeMode {
-				sURL := storeURL
-				if sURL == "" {
-					sURL = os.Getenv("HERO_STORE_URL")
-					if sURL == "" {
-						sURL = "http://localhost:8000"
-					}
-				}
-				fmt.Printf("Connecting to store shell for instance %q...\n", target)
-				conn, err = deps.Client.SSHStoreDeployment(cmd.Context(), sURL, target, runCmd)
-				if err != nil {
-					return fmt.Errorf("store ssh: %w", err)
-				}
-			} else {
-				if project == "" {
-					return fmt.Errorf("flag --project is required in direct mode")
-				}
-				proj, err := resolveProject(cmd.Context(), deps, project)
-				if err != nil {
-					return err
-				}
+			if project == "" {
+				return fmt.Errorf("flag --project is required")
+			}
+			proj, err := resolveProject(cmd.Context(), deps, project)
+			if err != nil {
+				return err
+			}
 
-				fmt.Printf("Connecting to shell for app %q in project %q...\n", target, proj.Name)
-				conn, err = deps.Client.SSHDeployment(cmd.Context(), proj.ID, target, runCmd)
-				if err != nil {
-					return fmt.Errorf("ssh: %w", err)
-				}
+			fmt.Printf("Connecting to shell for app %q in project %q...\n", target, proj.Name)
+			conn, err = deps.Client.SSHDeployment(cmd.Context(), proj.ID, target, runCmd)
+			if err != nil {
+				return fmt.Errorf("ssh: %w", err)
 			}
 
 			defer func() { _ = conn.Close() }()
@@ -80,9 +62,7 @@ In store mode:  heroctl ssh <instance_id> --store`,
 		},
 	}
 
-	cmd.Flags().StringVar(&project, "project", "", "Project name (required in direct mode)")
+	cmd.Flags().StringVar(&project, "project", "", "Project name (required)")
 	cmd.Flags().StringVar(&runCmd, "cmd", "", "Command to execute (default /bin/sh)")
-	cmd.Flags().BoolVar(&storeMode, "store", false, "Connect via App Store WebSocket tunnel")
-	cmd.Flags().StringVar(&storeURL, "store-url", "", "App Store backend URL")
 	return cmd
 }

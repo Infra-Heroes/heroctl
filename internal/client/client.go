@@ -2,17 +2,17 @@
 package client
 
 import (
-	"bufio"
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
+	"net"
 	"strings"
+	"crypto/tls"
+	"bufio"
 	"time"
 
 	"github.com/Infra-Heroes/heroctl/internal/auth"
@@ -295,7 +295,6 @@ func (c *Client) UpdateDeploymentResources(ctx context.Context, projectID, appNa
 		req, &out)
 }
 
-
 // SetSecret creates or updates a secret for a project.
 func (c *Client) SetSecret(ctx context.Context, projectID, key, value string) error {
 	return c.do(ctx, http.MethodPost, "/api/v1/projects/"+projectID+"/secrets",
@@ -366,7 +365,6 @@ func (c *Client) ListPATs(ctx context.Context) ([]PAT, error) {
 func (c *Client) DeletePAT(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodDelete, "/api/v1/tokens/"+id, nil, nil)
 }
-
 
 // ── Volumes ───────────────────────────────────────────────────────────────────
 
@@ -667,7 +665,6 @@ func (c *Client) ensureToken(ctx context.Context) error {
 	c.token = newTok
 	return nil
 }
-
 // SSHDeployment establishes a raw connection to the API server and hijacks it for shell access.
 func (c *Client) SSHDeployment(ctx context.Context, projectID, appName, cmdParam string) (net.Conn, error) {
 	if err := c.ensureToken(ctx); err != nil {
@@ -734,43 +731,3 @@ func (c *Client) SSHDeployment(ctx context.Context, projectID, appName, cmdParam
 
 	return conn, nil
 }
-
-// SSHStoreDeployment establishes a WebSocket connection to the App Store backend and tunnels shell access.
-func (c *Client) SSHStoreDeployment(ctx context.Context, storeURL string, instanceID string, cmdParam string) (net.Conn, error) {
-	if err := c.ensureToken(ctx); err != nil {
-		return nil, err
-	}
-
-	if storeURL == "" {
-		storeURL = "http://localhost:8000"
-	}
-	u, err := url.Parse(storeURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid store URL: %w", err)
-	}
-
-	if u.Scheme == "https" {
-		u.Scheme = "wss"
-	} else {
-		u.Scheme = "ws"
-	}
-
-	u.Path = fmt.Sprintf("%s/api/instances/%s/ssh", strings.TrimSuffix(u.Path, "/"), instanceID)
-
-	q := u.Query()
-	q.Set("token", c.token.AccessToken)
-	if cmdParam != "" {
-		q.Set("cmd", cmdParam)
-	} else {
-		q.Set("cmd", "/bin/sh")
-	}
-	u.RawQuery = q.Encode()
-
-	conn, err := DialWebSocket(ctx, u, nil)
-	if err != nil {
-		return nil, fmt.Errorf("dial store websocket: %w", err)
-	}
-
-	return conn, nil
-}
-
