@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Infra-Heroes/heroctl/internal/auth"
@@ -720,6 +721,45 @@ func (c *Client) SSHDeployment(ctx context.Context, projectID, appName, cmdParam
 		body, _ := io.ReadAll(resp.Body)
 		_ = conn.Close()
 		return nil, fmt.Errorf("failed to hijack connection: status %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	return conn, nil
+}
+
+// SSHStoreDeployment establishes a WebSocket connection to the App Store backend and tunnels shell access.
+func (c *Client) SSHStoreDeployment(ctx context.Context, storeURL string, instanceID string, cmdParam string) (net.Conn, error) {
+	if err := c.ensureToken(ctx); err != nil {
+		return nil, err
+	}
+
+	if storeURL == "" {
+		storeURL = "http://localhost:8000"
+	}
+	u, err := url.Parse(storeURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid store URL: %w", err)
+	}
+
+	if u.Scheme == "https" {
+		u.Scheme = "wss"
+	} else {
+		u.Scheme = "ws"
+	}
+
+	u.Path = fmt.Sprintf("%s/api/instances/%s/ssh", strings.TrimSuffix(u.Path, "/"), instanceID)
+
+	q := u.Query()
+	q.Set("token", c.token.AccessToken)
+	if cmdParam != "" {
+		q.Set("cmd", cmdParam)
+	} else {
+		q.Set("cmd", "/bin/sh")
+	}
+	u.RawQuery = q.Encode()
+
+	conn, err := DialWebSocket(ctx, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("dial store websocket: %w", err)
 	}
 
 	return conn, nil
