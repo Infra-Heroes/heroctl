@@ -294,7 +294,6 @@ func (c *Client) UpdateDeploymentResources(ctx context.Context, projectID, appNa
 		req, &out)
 }
 
-
 // SetSecret creates or updates a secret for a project.
 func (c *Client) SetSecret(ctx context.Context, projectID, key, value string) error {
 	return c.do(ctx, http.MethodPost, "/api/v1/projects/"+projectID+"/secrets",
@@ -365,7 +364,6 @@ func (c *Client) ListPATs(ctx context.Context) ([]PAT, error) {
 func (c *Client) DeletePAT(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodDelete, "/api/v1/tokens/"+id, nil, nil)
 }
-
 
 // ── Volumes ───────────────────────────────────────────────────────────────────
 
@@ -724,4 +722,3 @@ func (c *Client) SSHDeployment(ctx context.Context, projectID, appName, cmdParam
 
 	return conn, nil
 }
-
