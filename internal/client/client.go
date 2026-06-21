@@ -680,11 +680,20 @@ func (c *Client) SSHDeployment(ctx context.Context, projectID, appName, cmdParam
 	}
 
 	// Dial host. Support both TCP and TLS (HTTPS).
+	host := u.Host
+	if !strings.Contains(host, ":") {
+		if u.Scheme == "https" {
+			host += ":443"
+		} else {
+			host += ":80"
+		}
+	}
+
 	var conn net.Conn
 	if u.Scheme == "https" {
-		conn, err = tls.Dial("tcp", u.Host, nil)
+		conn, err = tls.Dial("tcp", host, nil)
 	} else {
-		conn, err = net.Dial("tcp", u.Host)
+		conn, err = net.Dial("tcp", host)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("dial api server: %w", err)
