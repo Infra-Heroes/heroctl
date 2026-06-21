@@ -182,6 +182,34 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 	restart.Flags().StringVar(&restartProject, "project", "", "Project name (required)")
 	_ = restart.MarkFlagRequired("project")
 
-	cmd.AddCommand(list, get, stop, del, start, restart)
+	var updateProject string
+	var updateCPU int
+	var updateMemory int
+	update := &cobra.Command{
+		Use:   "update <app>",
+		Short: "Update CPU and/or memory resource limits for an app",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if updateCPU <= 0 && updateMemory <= 0 {
+				return fmt.Errorf("at least one of --cpu or --memory must be specified")
+			}
+			project, err := resolveProject(cmd.Context(), deps, updateProject)
+			if err != nil {
+				return err
+			}
+			d, err := deps.Client.UpdateDeploymentResources(cmd.Context(), project.ID, args[0], updateCPU, updateMemory)
+			if err != nil {
+				return fmt.Errorf("update deployment resources: %w", err)
+			}
+			fmt.Printf("Deployment %q updated. CPU: %d, Memory MB: %d\n", d.AppName, d.CPU, d.MemoryMB)
+			return nil
+		},
+	}
+	update.Flags().StringVar(&updateProject, "project", "", "Project name (required)")
+	_ = update.MarkFlagRequired("project")
+	update.Flags().IntVar(&updateCPU, "cpu", 0, "Number of vCPUs")
+	update.Flags().IntVar(&updateMemory, "memory", 0, "Memory in MB")
+
+	cmd.AddCommand(list, get, stop, del, start, restart, update)
 	return cmd
 }
