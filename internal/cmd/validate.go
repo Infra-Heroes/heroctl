@@ -31,7 +31,9 @@ func validateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("open file: %w", err)
 			}
-			defer f.Close()
+			defer func() {
+				_ = f.Close()
+			}()
 
 			if _, err := toml.Parse(f); err != nil {
 				return fmt.Errorf("validation failed for %s:\n%w", fileName, err)
