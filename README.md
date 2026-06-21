@@ -4,8 +4,8 @@
 
 **The official command-line interface for the Infra-Heroes platform.**
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/Infra-Heroes/heroctl)](https://goreportcard.com/report/github.com/Infra-Heroes/heroctl)
-[![Build Status](https://github.com/Infra-Heroes/heroctl/actions/workflows/build.yml/badge.svg)](https://github.com/Infra-Heroes/heroctl/actions)
+
+[![Build Status](https://github.com/Infra-Heroes/heroctl/actions/workflows/ci.yml/badge.svg)](https://github.com/Infra-Heroes/heroctl/actions)
 
 Manage your MicroVM deployments, volumes, secrets, and configurations effortlessly directly from your terminal.
 
