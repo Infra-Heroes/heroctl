@@ -3,7 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"io"
+
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,54 +14,7 @@ import (
 	"github.com/Infra-Heroes/heroctl/internal/client"
 )
 
-func buildServerFrame(opcode byte, payload []byte) []byte {
-	var frame []byte
-	byte0 := byte(0x80) | (opcode & 0x0f) // FIN set
-	frame = append(frame, byte0)
 
-	length := len(payload)
-	if length < 126 {
-		frame = append(frame, byte(length))
-	} else {
-		frame = append(frame, 126, byte(length>>8), byte(length))
-	}
-
-	frame = append(frame, payload...)
-	return frame
-}
-
-func readClientFrame(r io.Reader) (string, error) {
-	header := make([]byte, 2)
-	if _, err := io.ReadFull(r, header); err != nil {
-		return "", err
-	}
-	masked := (header[1] & 0x80) != 0
-	payloadLen := int(header[1] & 0x7f)
-	if payloadLen == 126 {
-		lenBytes := make([]byte, 2)
-		if _, err := io.ReadFull(r, lenBytes); err != nil {
-			return "", err
-		}
-		payloadLen = int(lenBytes[0])<<8 | int(lenBytes[1])
-	}
-	var mask []byte
-	if masked {
-		mask = make([]byte, 4)
-		if _, err := io.ReadFull(r, mask); err != nil {
-			return "", err
-		}
-	}
-	payload := make([]byte, payloadLen)
-	if _, err := io.ReadFull(r, payload); err != nil {
-		return "", err
-	}
-	if masked {
-		for i := range payload {
-			payload[i] ^= mask[i%4]
-		}
-	}
-	return string(payload), nil
-}
 
 func TestSSHCommand_Direct(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
