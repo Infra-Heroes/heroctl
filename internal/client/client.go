@@ -2,17 +2,17 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
-	"net"
 	"strings"
-	"crypto/tls"
-	"bufio"
 	"time"
 
 	"github.com/Infra-Heroes/heroctl/internal/auth"
@@ -665,6 +665,7 @@ func (c *Client) ensureToken(ctx context.Context) error {
 	c.token = newTok
 	return nil
 }
+
 // SSHDeployment establishes a raw connection to the API server and hijacks it for shell access.
 func (c *Client) SSHDeployment(ctx context.Context, projectID, appName, cmdParam string) (net.Conn, error) {
 	if err := c.ensureToken(ctx); err != nil {

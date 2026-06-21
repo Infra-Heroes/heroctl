@@ -19,7 +19,7 @@ func sshCmd(deps *Deps) *cobra.Command {
 		Short: "Start an interactive shell session in the active deployment container",
 		Long: `Start an interactive shell session.
 In direct mode: heroctl ssh <app> --project <project>`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := args[0]
 			var conn net.Conn

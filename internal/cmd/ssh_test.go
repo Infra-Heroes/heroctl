@@ -134,5 +134,3 @@ func TestSSHCommand_Direct(t *testing.T) {
 		t.Errorf("expected 'hello stdout' in output, got %q", stdout.String())
 	}
 }
-
-

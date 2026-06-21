@@ -49,9 +49,9 @@ func TestDetectContainerEngine(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			lookPathFunc = tc.mockLookPath
-			
+
 			engine, err := detectContainerEngine()
-			
+
 			if tc.expectedError && err == nil {
 				t.Fatalf("expected error but got nil")
 			}

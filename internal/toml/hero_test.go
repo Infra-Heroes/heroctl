@@ -132,4 +132,3 @@ max_replicas = 2
 		t.Errorf("expected MaxReplicas to be adjusted to MinReplicas (4), got %d", cfgRange.Deploy.MaxReplicas)
 	}
 }
-
