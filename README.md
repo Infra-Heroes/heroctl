@@ -127,7 +127,31 @@ Secrets are automatically injected as environment variables inside your MicroVM 
 
 ---
 
-### 6. Environment Variables
+### 6. Interactive Shell (SSH Access)
+
+Establish a secure, interactive shell session directly into the active MicroVM allocation instance. This is supported in both direct deployment environments and via the self-service App Store.
+
+#### Direct Environment Access (API Host)
+```bash
+# Connect to an app's shell in a project
+heroctl ssh my-app --project my-project
+
+# Connect and run a specific shell command
+heroctl ssh my-app --project my-project --cmd "ls -la /var/log"
+```
+
+#### App Store Instance Access (WebSocket Tunnel)
+```bash
+# Connect to a store instance shell using the WebSocket tunnel proxy
+heroctl ssh <instance_id> --store
+
+# Specify a custom store API backend URL
+heroctl ssh <instance_id> --store --store-url https://store.example.com
+```
+
+---
+
+### 7. Environment Variables
 
 Define non-sensitive public environment variables directly in the `hero.toml` configurations:
 
@@ -141,7 +165,7 @@ Env variables are loaded and made available to your application process on start
 
 ---
 
-### 7. Database Access
+### 8. Database Access
 
 Access managed project databases over the isolated virtual network (VXLAN overlay) namespace.
 
@@ -150,3 +174,4 @@ By configuring your application connection string, you bypass public ports entir
 postgres://username:password@db.my-project.internal:5432/database_name
 ```
 Internal DNS resolvable names (`.internal`) are bound to private VXLAN IPs, ensuring tenant isolation.
+
