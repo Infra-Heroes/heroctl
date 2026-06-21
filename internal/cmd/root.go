@@ -38,8 +38,8 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// login and signup manage their own deps.
-			if cmd.Name() == "login" || cmd.Name() == "signup" {
+			// commands that do not need auth
+			if cmd.Name() == "login" || cmd.Name() == "signup" || cmd.Name() == "validate" || cmd.Name() == "version" || cmd.Name() == "completion" {
 				return nil
 			}
 
@@ -82,6 +82,7 @@ func newRootCmd() *cobra.Command {
 		secretsCmd(&deps),
 		tokensCmd(&deps),
 		versionCmd(),
+		validateCmd(),
 	)
 
 	root.PersistentFlags().StringVar(&tokenFlag, "token", "", "Authenticate using a personal access token")
