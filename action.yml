@@ -1,0 +1,13 @@
+name: "Hero Validation"
+description: "Validates hero.toml configuration files using the heroctl Docker image"
+inputs:
+  config_path:
+    description: "Path to the hero.toml file"
+    required: false
+    default: "hero.toml"
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  args:
+    - "validate"
+    - "${{ inputs.config_path }}"
