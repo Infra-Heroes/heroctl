@@ -32,6 +32,7 @@ const deployTimeout = 5 * time.Minute
 func deployCmd(deps *Deps) *cobra.Command {
 	var projectName string
 	var yes bool
+	var noWait bool
 
 	cmd := &cobra.Command{
 		Use:   "deploy",
@@ -221,6 +222,14 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return fmt.Errorf("create deployment: %w", err)
 			}
 
+			if noWait {
+				fmt.Printf("Deployment %q submitted (--no-wait: skipping health check).\n", heroCfg.App.Name)
+				if deployment.Hostname != "" {
+					fmt.Printf("URL: https://%s\n", deployment.Hostname)
+				}
+				return nil
+			}
+
 			fmt.Printf("Deployment %q submitted. Waiting for VM to start and become healthy", heroCfg.App.Name)
 
 			deadline := time.Now().Add(deployTimeout)
@@ -254,6 +263,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 
 	cmd.Flags().StringVar(&projectName, "project", "", "Project name to deploy to (required)")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt (for CI/non-interactive use)")
+	cmd.Flags().BoolVar(&noWait, "no-wait", false, "Submit deployment and return immediately without waiting for health (useful when the nanostack driver requires KVM unavailable locally)")
 	_ = cmd.MarkFlagRequired("project")
 
 	return cmd
