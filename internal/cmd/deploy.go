@@ -96,11 +96,18 @@ The project must already exist (create with: heroctl projects create <name>).`,
 
 			// 5. docker/podman login via stdin to avoid credentials appearing in process list.
 			// hero-api proxies /v2/ — push to the API host, not the backend registry.
+			// HERO_REGISTRY_URL overrides the registry host for docker login/push (useful when
+			// the Docker daemon can't reach the same address as the heroctl process, e.g. Docker
+			// Desktop on macOS where host.docker.internal:PORT is reachable from the daemon but
+			// not from the host process).
 			serverURL := build.ServerURL
 			if envURL := os.Getenv("HERO_API_URL"); envURL != "" {
 				serverURL = envURL
 			}
 			registry := strings.TrimPrefix(strings.TrimPrefix(serverURL, "https://"), "http://")
+			if regOverride := os.Getenv("HERO_REGISTRY_URL"); regOverride != "" {
+				registry = strings.TrimPrefix(strings.TrimPrefix(regOverride, "https://"), "http://")
+			}
 			fmt.Printf("Logging into registry %s with %s...\n", registry, engine)
 			loginCmd := exec.CommandContext(ctx, engine, "login", registry,
 				"--username", creds.Username, "--password-stdin")
