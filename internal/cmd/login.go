@@ -46,8 +46,11 @@ func loginCmd() *cobra.Command {
 			fmt.Printf("Enter code: %s\n\n", dar.UserCode)
 			fmt.Println("Waiting for authentication...")
 
-			// Best-effort browser open — ignore failures.
-			_ = exec.CommandContext(ctx, "xdg-open", dar.VerificationURIComplete).Start()
+			// Best-effort browser open — ignore failures. The URL comes from
+			// the configured auth server's device-flow response, not a shell,
+			// and exec.Command doesn't invoke one, so it's passed as a single
+			// literal argument regardless of content.
+			_ = exec.CommandContext(ctx, "xdg-open", dar.VerificationURIComplete).Start() // #nosec G204
 
 			expires := time.Duration(dar.ExpiresIn) * time.Second
 			pollCtx, cancel := context.WithTimeout(ctx, expires)

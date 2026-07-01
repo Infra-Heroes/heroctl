@@ -102,7 +102,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			}
 			registry := strings.TrimPrefix(strings.TrimPrefix(serverURL, "https://"), "http://")
 			fmt.Printf("Logging into registry %s with %s...\n", registry, engine)
-			loginCmd := exec.CommandContext(ctx, engine, "login", registry,
+			loginCmd := exec.CommandContext(ctx, engine, "login", registry, // #nosec G204 -- engine is locally detected (docker/podman binary), not user/network input
 				"--username", creds.Username, "--password-stdin")
 			loginCmd.Stdin = strings.NewReader(creds.Password)
 			loginCmd.Stdout = os.Stdout
@@ -122,7 +122,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			// 7. Build image: {registry}/{orgName}/{projectName}:{imageTag}
 			image := fmt.Sprintf("%s/%s/%s:%s", registry, org.Name, project.Name, imageTag)
 			fmt.Printf("Building %s...\n", image)
-			buildCmd := exec.CommandContext(ctx, engine, "build", "--platform", "linux/amd64", "-t", image, ".")
+			buildCmd := exec.CommandContext(ctx, engine, "build", "--platform", "linux/amd64", "-t", image, ".") // #nosec G204 -- engine is locally detected (docker/podman binary), not user/network input
 			buildCmd.Stdout = os.Stdout
 			buildCmd.Stderr = os.Stderr
 			if err := buildCmd.Run(); err != nil {
@@ -131,7 +131,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 
 			// 8. Push image.
 			fmt.Printf("Pushing %s...\n", image)
-			pushCmd := exec.CommandContext(ctx, engine, "push", image)
+			pushCmd := exec.CommandContext(ctx, engine, "push", image) // #nosec G204 -- engine is locally detected (docker/podman binary), not user/network input
 			pushCmd.Stdout = os.Stdout
 			pushCmd.Stderr = os.Stderr
 			if err := pushCmd.Run(); err != nil {

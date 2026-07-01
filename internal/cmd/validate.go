@@ -27,7 +27,7 @@ func validateCmd() *cobra.Command {
 				return fmt.Errorf("resolve path: %w", err)
 			}
 
-			f, err := os.Open(path)
+			f, err := os.Open(path) // #nosec G304 -- path is a CLI arg for the user's own local file, not attacker-controlled
 			if err != nil {
 				return fmt.Errorf("open file: %w", err)
 			}

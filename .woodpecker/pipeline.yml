@@ -11,10 +11,9 @@ steps:
 
   security:
     image: securego/gosec:latest
-    failure: ignore
     commands:
       - apk add --no-cache git
-      - gosec ./...
+      - gosec -exclude-generated ./...
 
   test:
     image: golang:1.26-alpine
