@@ -11,6 +11,11 @@ steps:
 
   security:
     image: securego/gosec:latest
+    environment:
+      # The gosec image bundles its own Go toolchain with GOTOOLCHAIN=local,
+      # which is older than this repo's go.mod version — without this, gosec
+      # fails outright instead of reporting findings.
+      GOTOOLCHAIN: auto
     commands:
       - apk add --no-cache git
       - gosec -exclude-generated ./...

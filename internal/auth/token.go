@@ -70,5 +70,5 @@ func Save(tok *Token) error {
 	defer func() { _ = f.Close() }()
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	return enc.Encode(tok)
+	return enc.Encode(tok) // #nosec G117 -- writing to the user's own 0600 token file is the intended purpose of this function
 }

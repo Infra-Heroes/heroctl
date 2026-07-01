@@ -41,7 +41,7 @@ func secretsSetCmd(deps *Deps) *cobra.Command {
 			}
 
 			fmt.Fprintf(os.Stderr, "Enter value for %q (input hidden): ", key)
-			valueBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+			valueBytes, err := term.ReadPassword(int(os.Stdin.Fd())) // #nosec G115 -- stdin fd never exceeds int range
 			fmt.Fprintln(os.Stderr)
 			if err != nil {
 				return fmt.Errorf("read secret value: %w", err)
