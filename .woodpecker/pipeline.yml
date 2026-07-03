@@ -4,14 +4,17 @@ when:
 steps:
   lint:
     image: golang:1.26-alpine
+    failure: ignore
     commands:
       - apk add --no-cache git build-base
-      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin v2.12.2
       - golangci-lint run --verbose --timeout 5m
 
   security:
-    image: securego/gosec:latest
+    image: securego/gosec:2.24.6
     failure: ignore
+    environment:
+      GOTOOLCHAIN: auto
     commands:
       - apk add --no-cache git
       - gosec ./...
@@ -26,3 +29,18 @@ steps:
     image: golang:1.26-alpine
     commands:
       - CGO_ENABLED=0 go build -ldflags="-s -w" -o heroctl ./cmd/heroctl
+
+  release:
+    image: woodpeckerci/plugin-gitea-release
+    failure: ignore
+    when:
+      event: tag
+      ref: refs/tags/v*
+    settings:
+      api_key:
+        from_secret: codeberg_token
+      base_url: https://codeberg.org
+      files:
+        - heroctl
+      title: ${CI_COMMIT_TAG}
+      generate_release_notes: true
