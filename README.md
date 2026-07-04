@@ -6,6 +6,7 @@
 
 
 [![Build Status](https://github.com/Infra-Heroes/heroctl/actions/workflows/ci.yml/badge.svg)](https://github.com/Infra-Heroes/heroctl/actions)
+[![status-badge](https://woodpecker.infra-heroes.de/api/badges/InfraHeroes/heroctl/status.svg)](https://woodpecker.infra-heroes.de/repos/InfraHeroes/heroctl)
 
 Manage your MicroVM deployments, volumes, secrets, and configurations effortlessly directly from your terminal.
 
