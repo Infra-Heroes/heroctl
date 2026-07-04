@@ -44,3 +44,20 @@ steps:
         - heroctl
       title: ${CI_COMMIT_TAG}
       generate_release_notes: true
+
+  docker:
+    image: woodpeckerci/plugin-docker-buildx:6.1.0
+    privileged: true
+    when:
+      event: tag
+      ref: refs/tags/v*
+    settings:
+      registry: codeberg.org
+      repo: codeberg.org/infraheroes/heroctl
+      username: dominikludwig1995
+      password:
+        from_secret: codeberg_token
+      platforms: linux/amd64,linux/arm64
+      tags:
+        - ${CI_COMMIT_TAG}
+        - latest
