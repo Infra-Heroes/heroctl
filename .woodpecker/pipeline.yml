@@ -47,6 +47,7 @@ steps:
 
   docker:
     image: woodpeckerci/plugin-docker-buildx:6.1.0
+    privileged: true
     when:
       event: tag
       ref: refs/tags/v*
