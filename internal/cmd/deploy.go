@@ -184,6 +184,11 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			if heroCfg.Deploy.Private {
 				scope = "internal"
 			}
+			// Web-exposed apps are protected behind Zitadel OIDC unless the user
+			// opts out with public = true; the API reads the hero-public label.
+			if heroCfg.Deploy.Public && !heroCfg.Deploy.Private {
+				heroCfg.Labels["hero-public"] = "true"
+			}
 			healthCheckType := heroCfg.Deploy.HealthCheckType
 			if healthCheckType == "" {
 				healthCheckType = "http"

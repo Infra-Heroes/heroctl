@@ -132,3 +132,34 @@ max_replicas = 2
 		t.Errorf("expected MaxReplicas to be adjusted to MinReplicas (4), got %d", cfgRange.Deploy.MaxReplicas)
 	}
 }
+
+func TestParsePublicFlag(t *testing.T) {
+	cfg, err := Parse(strings.NewReader(`
+[app]
+name = "my-app"
+
+[deploy]
+health_path = "/"
+public = true
+`))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !cfg.Deploy.Public {
+		t.Error("expected Deploy.Public to be true")
+	}
+
+	cfg, err = Parse(strings.NewReader(`
+[app]
+name = "my-app"
+
+[deploy]
+health_path = "/"
+`))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Deploy.Public {
+		t.Error("expected Deploy.Public to default to false (protected)")
+	}
+}

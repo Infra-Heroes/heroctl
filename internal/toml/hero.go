@@ -51,6 +51,10 @@ type DeployConfig struct {
 	// Private marks the deployment as internal-only (no public relay, no Traefik route).
 	// Default false (public).
 	Private bool `toml:"private"`
+	// Public disables the platform's Zitadel OIDC login in front of the app,
+	// making it reachable by anyone. Default false: web-exposed deployments
+	// require authentication. Ignored when private = true.
+	Public bool `toml:"public"`
 	// HealthCheckType is the Nomad health check protocol: "http" or "tcp".
 	// Empty string defaults to "http".
 	HealthCheckType string `toml:"health_check_type"`
