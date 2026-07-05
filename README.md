@@ -111,6 +111,26 @@ Run workloads under your own domain name by completing these two steps:
    custom_domains = ["app.example.com"]
    ```
 
+#### How it works under the hood
+
+When you deploy with `custom_domains`, hero-api appends the domain to the Traefik router rule registered with Consul:
+
+```
+Host(`my-app.heroapp.run`) || Host(`www.my-app.heroapp.run`) || Host(`app.example.com`)
+```
+
+**TLS certificates** are handled by the platform automatically:
+
+- All `*.heroapp.run` subdomains are covered by a wildcard certificate issued by Let's Encrypt via Certbot (DNS-01 challenge against the Hetzner zone). Renewed automatically every 90 days.
+- On each renewal, the certificate is written to `/etc/traefik/certs/wildcard.{crt,key}` on the gateway node and backed up to Consul KV at `traefik/certs/{cert,key}` for recovery across gateway restarts.
+- Traefik loads the certificate from the local file and serves it for all `*.heroapp.run` traffic.
+
+> **Note:** Custom domains outside `*.heroapp.run` (e.g. `app.example.com`) require a valid TLS certificate that covers that domain. The platform currently does not auto-issue per-custom-domain certificates — ensure your DNS CNAME is in place before deploying so the routing resolves correctly. Per-custom-domain certificate issuance is on the roadmap.
+
+#### DNS propagation
+
+The CNAME must resolve before you deploy. Traefik adds the `Host()` rule immediately on deploy but there is no retry — if DNS does not resolve to the platform IP at that point, HTTP health checks targeting the custom domain will fail and the deployment will be marked unhealthy.
+
 ### 4. Volumes (Ceph Block Storage)
 
 Attach high-availability persistent storage volumes to your MicroVM.
