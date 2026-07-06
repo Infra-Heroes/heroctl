@@ -190,6 +190,36 @@ func (c *Client) GetCredits(ctx context.Context, orgID string) (*Credits, error)
 	return &out, c.do(ctx, http.MethodGet, "/api/v1/orgs/"+orgID+"/credits", nil, &out)
 }
 
+// OrgLimits is the response from PATCH /api/v1/orgs/{id}/limits.
+type OrgLimits struct {
+	ID          string `json:"ID"`
+	Name        string `json:"Name"`
+	MaxProjects int32  `json:"MaxProjects"`
+	VmCap       int32  `json:"VmCap"`
+	MaxCpu      int32  `json:"MaxCpu"`
+	MaxMemoryMb int32  `json:"MaxMemoryMb"`
+}
+
+// UpdateOrgLimits updates org limits (platform admins only). Nil fields are
+// left unchanged.
+func (c *Client) UpdateOrgLimits(ctx context.Context, orgID string, maxProjects, vmCap, maxCPU, maxMemoryMB *int32) (*OrgLimits, error) {
+	body := map[string]any{}
+	if maxProjects != nil {
+		body["max_projects"] = *maxProjects
+	}
+	if vmCap != nil {
+		body["vm_cap"] = *vmCap
+	}
+	if maxCPU != nil {
+		body["max_cpu"] = *maxCPU
+	}
+	if maxMemoryMB != nil {
+		body["max_memory_mb"] = *maxMemoryMB
+	}
+	var out OrgLimits
+	return &out, c.do(ctx, http.MethodPatch, "/api/v1/orgs/"+orgID+"/limits", body, &out)
+}
+
 // ListProjects returns all projects for the authenticated org.
 func (c *Client) ListProjects(ctx context.Context) ([]Project, error) {
 	var out []Project
