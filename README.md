@@ -5,7 +5,6 @@
 **The official command-line interface for the Infra-Heroes platform.**
 
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/Infra-Heroes/heroctl/ci.yml?branch=main)](https://github.com/Infra-Heroes/heroctl/actions)
 [![status-badge](https://woodpecker.infra-heroes.de/api/badges/InfraHeroes/heroctl/status.svg)](https://woodpecker.infra-heroes.de/repos/InfraHeroes/heroctl)
 
 Manage your MicroVM deployments, volumes, secrets, and configurations effortlessly directly from your terminal.
