@@ -180,9 +180,9 @@ Access managed project databases over the isolated virtual network (VXLAN overla
 
 By configuring your application connection string, you bypass public ports entirely. Connect internally via:
 ```txt
-postgres://username:password@db.my-project.internal:5432/database_name
+postgres://username:password@db:5432/database_name
 ```
-Internal DNS resolvable names (`.internal`) are bound to private VXLAN IPs, ensuring secure tenant isolation.
+Internal service names resolve via the platform DNS facade (`<app>.svc.platform`, with `search svc.platform` preconfigured in the VM — so the short app name works). Names are bound to private VXLAN IPs, ensuring secure tenant isolation.
 
 ---
 
