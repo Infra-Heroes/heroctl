@@ -211,7 +211,6 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				MinReplicas:     heroCfg.Deploy.MinReplicas,
 				MaxReplicas:     heroCfg.Deploy.MaxReplicas,
 			})
-			fmt.Printf("DEPLOYMENT REQUEST LABELS: %+v\n", heroCfg.Labels)
 			if err != nil {
 				if strings.Contains(err.Error(), "vm cap") {
 					return fmt.Errorf("%s — stop or delete an existing deployment first with: heroctl deployments list --project %s", err, projectName)
