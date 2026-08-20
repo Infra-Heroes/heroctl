@@ -2,16 +2,12 @@
 package client
 
 import (
-	"bufio"
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/Infra-Heroes/heroctl/internal/auth"
@@ -693,62 +689,4 @@ func (c *Client) ensureToken(ctx context.Context) error {
 	}
 	c.token = newTok
 	return nil
-}
-
-// SSHDeployment establishes a raw connection to the API server and hijacks it for shell access.
-func (c *Client) SSHDeployment(ctx context.Context, projectID, appName, cmdParam string) (net.Conn, error) {
-	if err := c.ensureToken(ctx); err != nil {
-		return nil, err
-	}
-
-	u, err := url.Parse(c.baseURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base URL: %w", err)
-	}
-
-	// Dial host. Support both TCP and TLS (HTTPS).
-	var conn net.Conn
-	if u.Scheme == "https" {
-		conn, err = tls.Dial("tcp", u.Host, nil)
-	} else {
-		conn, err = net.Dial("tcp", u.Host)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("dial api server: %w", err)
-	}
-
-	// Build the path with cmd query param if provided
-	path := fmt.Sprintf("%s/api/v1/projects/%s/deployments/%s/ssh", u.Path, projectID, appName)
-	if cmdParam != "" {
-		path += "?cmd=" + url.QueryEscape(cmdParam)
-	}
-
-	// Send raw HTTP request to hijack/upgrade connection.
-	req := fmt.Sprintf("GET %s HTTP/1.1\r\n"+
-		"Host: %s\r\n"+
-		"Authorization: Bearer %s\r\n"+
-		"Upgrade: tcp\r\n"+
-		"Connection: Upgrade\r\n\r\n", path, u.Host, c.token.AccessToken)
-
-	if _, err := conn.Write([]byte(req)); err != nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("write HTTP request: %w", err)
-	}
-
-	// Read HTTP response headers.
-	reader := bufio.NewReader(conn)
-	resp, err := http.ReadResponse(reader, nil)
-	if err != nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("read HTTP response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusSwitchingProtocols && resp.StatusCode != http.StatusOK {
-		defer func() { _ = resp.Body.Close() }()
-		body, _ := io.ReadAll(resp.Body)
-		_ = conn.Close()
-		return nil, fmt.Errorf("failed to hijack connection: status %d, body: %s", resp.StatusCode, string(body))
-	}
-
-	return conn, nil
 }
