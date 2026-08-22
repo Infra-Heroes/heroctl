@@ -38,8 +38,7 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// commands that do not need auth
-			if cmd.Name() == "login" || cmd.Name() == "signup" || cmd.Name() == "validate" || cmd.Name() == "version" || cmd.Name() == "completion" {
+			if !needsAuth(cmd) {
 				return nil
 			}
 
@@ -88,4 +87,33 @@ func newRootCmd() *cobra.Command {
 	root.PersistentFlags().StringVar(&tokenFlag, "token", "", "Authenticate using a personal access token")
 
 	return root
+}
+
+// commandsWithoutAuth lists commands that must work without a stored token.
+// Alongside the obvious ones, this covers Cobra's generated "help" and
+// "completion" commands and the hidden completion commands a shell invokes on
+// every TAB press — none of those talk to the API.
+var commandsWithoutAuth = map[string]bool{
+	"login":                         true,
+	"signup":                        true,
+	"validate":                      true,
+	"version":                       true,
+	"help":                          true,
+	"completion":                    true,
+	cobra.ShellCompRequestCmd:       true,
+	cobra.ShellCompNoDescRequestCmd: true,
+}
+
+// needsAuth reports whether cmd requires an authenticated session.
+//
+// It walks the parent chain rather than testing cmd.Name() alone: Name()
+// returns only the leaf, so "heroctl completion bash" reports "bash" and would
+// otherwise be treated as an authenticated command.
+func needsAuth(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if commandsWithoutAuth[c.Name()] {
+			return false
+		}
+	}
+	return true
 }

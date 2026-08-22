@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 )
@@ -26,11 +26,14 @@ func logsCmd(deps *Deps) *cobra.Command {
 			}
 			defer func() { _ = body.Close() }()
 
-			scanner := bufio.NewScanner(body)
-			for scanner.Scan() {
-				fmt.Println(scanner.Text())
+			// Copy raw bytes rather than scanning lines. bufio.Scanner caps a
+			// token at 64KB and aborts the whole stream with ErrTooLong on a
+			// longer line, so a single large log entry (a JSON dump, a stack
+			// trace) would suppress all output, including the lines after it.
+			if _, err := io.Copy(cmd.OutOrStdout(), body); err != nil {
+				return fmt.Errorf("stream logs: %w", err)
 			}
-			return scanner.Err()
+			return nil
 		},
 	}
 
