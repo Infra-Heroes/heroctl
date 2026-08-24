@@ -95,7 +95,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			}
 
 			// 5. docker/podman login via stdin to avoid credentials appearing in process list.
-			// hero-api proxies /v2/ — push to the API host, not the backend registry.
+			// hero-api proxies /v2/, so push to the API host, not the backend registry.
 			serverURL := build.ServerURL
 			if envURL := os.Getenv("HERO_API_URL"); envURL != "" {
 				serverURL = envURL
@@ -152,7 +152,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				for _, vc := range heroCfg.Volumes {
 					v, ok := volumeIndex[vc.Name]
 					if !ok {
-						return fmt.Errorf("volume %q not found — create it first with: heroctl volumes create %s --size <gb> --project %s",
+						return fmt.Errorf("volume %q not found; create it first with: heroctl volumes create %s --size <gb> --project %s",
 							vc.Name, vc.Name, projectName)
 					}
 					if v.Status == "attached" {
@@ -165,7 +165,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				}
 			}
 
-			// 10. Confirm before deploying with volumes — the server must stop the
+			// 10. Confirm before deploying with volumes: the server must stop the
 			// running allocation first, causing brief downtime.
 			if len(volumeAttachments) > 0 && !yes {
 				fmt.Println("Warning: this app has volumes attached.")
@@ -212,10 +212,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				MaxReplicas:     heroCfg.Deploy.MaxReplicas,
 			})
 			if err != nil {
-				if strings.Contains(err.Error(), "vm cap") {
-					return fmt.Errorf("%s — stop or delete an existing deployment first with: heroctl deployments list --project %s", err, projectName)
-				}
-				return fmt.Errorf("create deployment: %w", err)
+				return deploymentError(err, projectName)
 			}
 
 			fmt.Printf("Deployment %q submitted. Waiting for VM to start and become healthy", heroCfg.App.Name)
@@ -225,14 +222,14 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				time.Sleep(5 * time.Second)
 				status, err := deps.Client.GetDeploymentStatus(ctx, project.ID, heroCfg.App.Name)
 				if err != nil {
-					// Transient error — keep trying.
+					// Transient error, keep trying.
 					fmt.Print(".")
 					continue
 				}
 				switch status.NomadStatus {
 				case "dead":
 					fmt.Println()
-					return fmt.Errorf("deployment failed — app crashed on startup; check logs with: heroctl deployments logs %s --project %s", heroCfg.App.Name, projectName)
+					return fmt.Errorf("deployment failed: app crashed on startup; check logs with: heroctl deployments logs %s --project %s", heroCfg.App.Name, projectName)
 				case "running":
 					if status.Healthy {
 						fmt.Println(" ready!")
@@ -254,4 +251,21 @@ The project must already exist (create with: heroctl projects create <name>).`,
 	_ = cmd.MarkFlagRequired("project")
 
 	return cmd
+}
+
+// deploymentError turns a CreateDeployment failure into a message that names
+// the way out. The API's exact wording is not pinned down here, so these match
+// on substrings, the same heuristic the vm-cap case has always used.
+func deploymentError(err error, projectName string) error {
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "vm cap"):
+		return fmt.Errorf("%s; stop or delete an existing deployment first with: heroctl deployments list --project %s", err, projectName)
+	case strings.Contains(msg, "credit"):
+		// heroctl cannot buy credits; point at the balance and leave the
+		// top-up to the platform.
+		return fmt.Errorf("%s; check your balance with: heroctl credits", err)
+	default:
+		return fmt.Errorf("create deployment: %w", err)
+	}
 }

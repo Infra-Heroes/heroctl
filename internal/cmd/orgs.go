@@ -25,7 +25,7 @@ func orgsCmd(deps *Deps) *cobra.Command {
 
 			fmt.Printf("Name:     %s\n", org.Name)
 			fmt.Printf("VM cap:   %d\n", org.VmCap)
-			fmt.Printf("Credits:  %.3f\n", credits.Credits)
+			fmt.Printf("Credits:  %s\n", formatCredits(credits))
 			return nil
 		},
 	}
