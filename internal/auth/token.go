@@ -32,15 +32,15 @@ func tokenPath() (string, error) {
 }
 
 // Load reads the token file.  Returns an error if the file is missing or
-// malformed — callers should direct the user to run 'heroctl login'.
+// malformed. Callers should direct the user to run 'heroctl login'.
 func Load() (*Token, error) {
 	path, err := tokenPath()
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.Open(path) // #nosec G304 — path derived from user home
+	f, err := os.Open(path) // #nosec G304: path derived from user home
 	if err != nil {
-		return nil, fmt.Errorf("not authenticated — run 'heroctl login' first")
+		return nil, fmt.Errorf("not authenticated; run 'heroctl login' first")
 	}
 	defer func() { _ = f.Close() }()
 
@@ -49,7 +49,7 @@ func Load() (*Token, error) {
 		return nil, fmt.Errorf("parse token file: %w", err)
 	}
 	if tok.AccessToken == "" {
-		return nil, fmt.Errorf("token file is empty — run 'heroctl login' again")
+		return nil, fmt.Errorf("token file is empty; run 'heroctl login' again")
 	}
 	return &tok, nil
 }

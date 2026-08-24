@@ -59,7 +59,7 @@ func StartDeviceFlow(ctx context.Context, authDomain, clientID string) (*DeviceA
 		return nil, fmt.Errorf("decode device_authorization response: %w", err)
 	}
 	if dar.DeviceCode == "" {
-		return nil, fmt.Errorf("empty device_code in response — check your auth_domain and client_id")
+		return nil, fmt.Errorf("empty device_code in response; check your auth_domain and client_id")
 	}
 	return &dar, nil
 }
@@ -104,7 +104,7 @@ func PollToken(ctx context.Context, authDomain, clientID, deviceCode string, int
 		case "slow_down":
 			ticker.Reset(time.Duration(interval+5) * time.Second)
 		case "expired_token":
-			return nil, fmt.Errorf("device code expired — run 'heroctl login' again")
+			return nil, fmt.Errorf("device code expired; run 'heroctl login' again")
 		case "access_denied":
 			return nil, fmt.Errorf("access denied")
 		default:

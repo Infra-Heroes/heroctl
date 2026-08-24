@@ -124,11 +124,11 @@ Host(`my-app.heroapp.run`) || Host(`www.my-app.heroapp.run`) || Host(`app.exampl
 - On each renewal, the certificate is written to `/etc/traefik/certs/wildcard.{crt,key}` on the gateway node and backed up to Consul KV at `traefik/certs/{cert,key}` for recovery across gateway restarts.
 - Traefik loads the certificate from the local file and serves it for all `*.heroapp.run` traffic.
 
-> **Note:** Custom domains outside `*.heroapp.run` (e.g. `app.example.com`) require a valid TLS certificate that covers that domain. The platform currently does not auto-issue per-custom-domain certificates — ensure your DNS CNAME is in place before deploying so the routing resolves correctly. Per-custom-domain certificate issuance is on the roadmap.
+> **Note:** Custom domains outside `*.heroapp.run` (e.g. `app.example.com`) require a valid TLS certificate that covers that domain. The platform currently does not auto-issue per-custom-domain certificates, so ensure your DNS CNAME is in place before deploying so the routing resolves correctly. Per-custom-domain certificate issuance is on the roadmap.
 
 #### DNS propagation
 
-The CNAME must resolve before you deploy. Traefik adds the `Host()` rule immediately on deploy but there is no retry — if DNS does not resolve to the platform IP at that point, HTTP health checks targeting the custom domain will fail and the deployment will be marked unhealthy.
+The CNAME must resolve before you deploy. Traefik adds the `Host()` rule immediately on deploy but there is no retry. If DNS does not resolve to the platform IP at that point, HTTP health checks targeting the custom domain will fail and the deployment will be marked unhealthy.
 
 ### 4. Volumes (Ceph Block Storage)
 
@@ -182,7 +182,7 @@ By configuring your application connection string, you bypass public ports entir
 ```txt
 postgres://username:password@db:5432/database_name
 ```
-Internal service names resolve via the platform DNS facade (`<app>.svc.platform`, with `search svc.platform` preconfigured in the VM — so the short app name works). Names are bound to private VXLAN IPs, ensuring secure tenant isolation.
+Internal service names resolve via the platform DNS facade (`<app>.svc.platform`, with `search svc.platform` preconfigured in the VM, so the short app name works). Names are bound to private VXLAN IPs, ensuring secure tenant isolation.
 
 ---
 

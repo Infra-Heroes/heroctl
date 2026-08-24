@@ -54,7 +54,7 @@ func volumesCreateCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("create volume: %w", err)
 			}
 
-			fmt.Printf("Volume %q created (%d GB) — ID: %s\n", vol.Name, vol.SizeGB, vol.ID)
+			fmt.Printf("Volume %q created (%d GB), ID: %s\n", vol.Name, vol.SizeGB, vol.ID)
 			return nil
 		},
 	}
@@ -148,7 +148,7 @@ func volumesDestroyCmd(deps *Deps) *cobra.Command {
 			}
 
 			if target.Status == "attached" {
-				return fmt.Errorf("volume %q is attached to a deployment — stop the deployment first", name)
+				return fmt.Errorf("volume %q is attached to a deployment; stop the deployment first", name)
 			}
 
 			if !force {

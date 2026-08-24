@@ -20,7 +20,7 @@ func signupCmd() *cobra.Command {
 		Short: "Create a new account",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if build.ServerURL == "" {
-				return fmt.Errorf("binary is not configured — build with -ldflags to set ServerURL")
+				return fmt.Errorf("binary is not configured; build with -ldflags to set ServerURL")
 			}
 
 			r := bufio.NewReader(os.Stdin)

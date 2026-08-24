@@ -19,6 +19,6 @@ func resolveProject(ctx context.Context, deps *Deps, projectName string) (*clien
 			return &projects[i], nil
 		}
 	}
-	return nil, fmt.Errorf("project %q not found — create it first with: heroctl projects create %s",
+	return nil, fmt.Errorf("project %q not found; create it first with: heroctl projects create %s",
 		projectName, projectName)
 }

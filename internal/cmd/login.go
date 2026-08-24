@@ -32,7 +32,7 @@ func loginCmd() *cobra.Command {
 			}
 
 			if build.AuthDomain == "" || build.ClientID == "" {
-				return fmt.Errorf("binary is not configured — build with -ldflags to set AuthDomain and ClientID")
+				return fmt.Errorf("binary is not configured; build with -ldflags to set AuthDomain and ClientID")
 			}
 
 			ctx := cmd.Context()
@@ -46,7 +46,7 @@ func loginCmd() *cobra.Command {
 			fmt.Printf("Enter code: %s\n\n", dar.UserCode)
 			fmt.Println("Waiting for authentication...")
 
-			// Best-effort browser open — ignore failures.
+			// Best-effort browser open; ignore failures.
 			_ = exec.CommandContext(ctx, "xdg-open", dar.VerificationURIComplete).Start()
 
 			expires := time.Duration(dar.ExpiresIn) * time.Second
