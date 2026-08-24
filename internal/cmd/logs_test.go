@@ -51,7 +51,7 @@ func TestLogsStreamsOrdinaryLines(t *testing.T) {
 }
 
 // Regression: the previous bufio.Scanner implementation capped a token at 64KB
-// and returned ErrTooLong on a longer line, which aborted the whole stream M-bM-^@M-^T
+// and returned ErrTooLong on a longer line, which aborted the whole stream —
 // the oversized line AND every line after it were dropped.
 func TestLogsHandlesLineOver64KB(t *testing.T) {
 	long := strings.Repeat("x", 70000)

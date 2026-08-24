@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/Infra-Heroes/heroctl/internal/auth"
@@ -50,6 +52,73 @@ type Org struct {
 type Credits struct {
 	Credits      float64 `json:"credits"`
 	MilliCredits int64   `json:"milli_credits"`
+	// GraceUntil is present only while the org is inside the grace window that
+	// follows a balance hitting zero. Empty means not in grace, so its absence
+	// needs no separate check.
+	GraceUntil string `json:"grace_until"`
+}
+
+// LedgerEntry is one row of the credit history.
+type LedgerEntry struct {
+	ID                string  `json:"id"`
+	DeltaMilliCredits int64   `json:"delta_milli_credits"`
+	DeltaCredits      float64 `json:"delta_credits"`
+	Reason            string  `json:"reason"`
+	CreatedAt         string  `json:"created_at"`
+}
+
+// Ledger is the response from GET /api/v1/credits/ledger.
+type Ledger struct {
+	Entries []LedgerEntry `json:"entries"`
+	Total   int64         `json:"total"`
+	Limit   int32         `json:"limit"`
+	Offset  int32         `json:"offset"`
+}
+
+// CreditPackage is one purchasable top-up bundle.
+type CreditPackage struct {
+	ID           string `json:"id"`
+	Label        string `json:"label"`
+	AmountEUR    string `json:"amount_eur"`
+	MilliCredits int64  `json:"milli_credits"`
+	Credits      int64  `json:"credits"`
+	BonusPercent int    `json:"bonus_percent"`
+}
+
+// Payment is one row of the payment history.
+type Payment struct {
+	ID           string `json:"id"`
+	MollieID     string `json:"mollie_id"`
+	MilliCredits int64  `json:"milli_credits"`
+	Status       string `json:"status"`
+	CheckoutURL  string `json:"checkout_url"`
+	CreatedAt    string `json:"created_at"`
+}
+
+// Checkout is the response from POST /api/v1/payments/checkout.
+type Checkout struct {
+	PaymentID   string `json:"payment_id"`
+	CheckoutURL string `json:"checkout_url"`
+	Package     string `json:"package"`
+	AmountEUR   string `json:"amount_eur"`
+}
+
+// BillingProfile is the org's invoiceable identity. hero-api requires one
+// before it will open a checkout, because every sale must be invoiced and the
+// VAT treatment follows the recipient's country and business status.
+type BillingProfile struct {
+	RecipientType      string `json:"recipient_type"`
+	Name               string `json:"name"`
+	Email              string `json:"email"`
+	Street             string `json:"street"`
+	PostalCode         string `json:"postal_code"`
+	City               string `json:"city"`
+	Country            string `json:"country"`
+	VATNumber          string `json:"vat_number"`
+	OrganizationNumber string `json:"organization_number"`
+	// Derived by hero-api from the fields above; read-only.
+	VATRate          string `json:"vat_rate,omitempty"`
+	VATReverseCharge bool   `json:"vat_reverse_charge,omitempty"`
 }
 
 // Project represents a hero-api project.
@@ -184,6 +253,60 @@ func (c *Client) CreateOrg(ctx context.Context, name string) (*Org, error) {
 func (c *Client) GetCredits(ctx context.Context, orgID string) (*Credits, error) {
 	var out Credits
 	return &out, c.do(ctx, http.MethodGet, "/api/v1/orgs/"+orgID+"/credits", nil, &out)
+}
+
+// GetLedger returns the org's credit history, newest first.
+func (c *Client) GetLedger(ctx context.Context, limit, offset int) (*Ledger, error) {
+	q := url.Values{}
+	if limit > 0 {
+		q.Set("limit", strconv.Itoa(limit))
+	}
+	if offset > 0 {
+		q.Set("offset", strconv.Itoa(offset))
+	}
+	path := "/api/v1/credits/ledger"
+	if encoded := q.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+	var out Ledger
+	return &out, c.do(ctx, http.MethodGet, path, nil, &out)
+}
+
+// ListCreditPackages returns the purchasable top-up bundles. hero-api owns the
+// catalogue; nothing here may invent a price.
+func (c *Client) ListCreditPackages(ctx context.Context) ([]CreditPackage, error) {
+	var out struct {
+		Packages []CreditPackage `json:"packages"`
+	}
+	return out.Packages, c.do(ctx, http.MethodGet, "/api/v1/payments/packages", nil, &out)
+}
+
+// ListPayments returns the org's payment history.
+func (c *Client) ListPayments(ctx context.Context) ([]Payment, error) {
+	var out struct {
+		Payments []Payment `json:"payments"`
+	}
+	return out.Payments, c.do(ctx, http.MethodGet, "/api/v1/payments", nil, &out)
+}
+
+// CreateCheckout opens a Mollie checkout for a package and returns where to
+// send the browser.
+func (c *Client) CreateCheckout(ctx context.Context, pkg string) (*Checkout, error) {
+	var out Checkout
+	body := map[string]string{"package": pkg}
+	return &out, c.do(ctx, http.MethodPost, "/api/v1/payments/checkout", body, &out)
+}
+
+// GetBillingProfile returns the org's billing identity.
+func (c *Client) GetBillingProfile(ctx context.Context) (*BillingProfile, error) {
+	var out BillingProfile
+	return &out, c.do(ctx, http.MethodGet, "/api/v1/billing/profile", nil, &out)
+}
+
+// PutBillingProfile creates or replaces the org's billing identity.
+func (c *Client) PutBillingProfile(ctx context.Context, p BillingProfile) (*BillingProfile, error) {
+	var out BillingProfile
+	return &out, c.do(ctx, http.MethodPut, "/api/v1/billing/profile", p, &out)
 }
 
 // OrgLimits is the response from PATCH /api/v1/orgs/{id}/limits.
