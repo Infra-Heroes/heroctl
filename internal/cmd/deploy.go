@@ -212,10 +212,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				MaxReplicas:     heroCfg.Deploy.MaxReplicas,
 			})
 			if err != nil {
-				if strings.Contains(err.Error(), "vm cap") {
-					return fmt.Errorf("%s — stop or delete an existing deployment first with: heroctl deployments list --project %s", err, projectName)
-				}
-				return fmt.Errorf("create deployment: %w", err)
+				return deploymentError(err, projectName)
 			}
 
 			fmt.Printf("Deployment %q submitted. Waiting for VM to start and become healthy", heroCfg.App.Name)
@@ -254,4 +251,21 @@ The project must already exist (create with: heroctl projects create <name>).`,
 	_ = cmd.MarkFlagRequired("project")
 
 	return cmd
+}
+
+// deploymentError turns a CreateDeployment failure into a message that names
+// the way out. The API's exact wording is not pinned down here, so these match
+// on substrings — the same heuristic the vm-cap case has always used.
+func deploymentError(err error, projectName string) error {
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "vm cap"):
+		return fmt.Errorf("%s — stop or delete an existing deployment first with: heroctl deployments list --project %s", err, projectName)
+	case strings.Contains(msg, "credit"):
+		// heroctl cannot buy credits; point at the balance and leave the
+		// top-up to the platform.
+		return fmt.Errorf("%s — check your balance with: heroctl credits", err)
+	default:
+		return fmt.Errorf("create deployment: %w", err)
+	}
 }
