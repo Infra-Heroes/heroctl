@@ -34,7 +34,7 @@ func newRootCmd() *cobra.Command {
 
 	root := &cobra.Command{
 		Use:           "heroctl",
-		Short:         "heroctl — CLI for the hero PaaS",
+		Short:         "CLI for the hero PaaS",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -92,7 +92,7 @@ func newRootCmd() *cobra.Command {
 // commandsWithoutAuth lists commands that must work without a stored token.
 // Alongside the obvious ones, this covers Cobra's generated "help" and
 // "completion" commands and the hidden completion commands a shell invokes on
-// every TAB press — none of those talk to the API.
+// every TAB press. None of those talk to the API.
 var commandsWithoutAuth = map[string]bool{
 	"login":                         true,
 	"signup":                        true,
