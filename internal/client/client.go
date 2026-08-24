@@ -53,7 +53,7 @@ type Credits struct {
 }
 
 // Project represents a hero-api project.
-// ID is the UUID string — the canonical project identifier.
+// ID is the UUID string, the canonical project identifier.
 // VNI is the VXLAN network identifier (separate from project identity).
 type Project struct {
 	ID        string `json:"id"`
@@ -64,7 +64,7 @@ type Project struct {
 }
 
 // Deployment represents a deployment returned from list/get endpoints.
-// ID is the UUID — the canonical deployment identifier (not shown to users).
+// ID is the UUID, the canonical deployment identifier (not shown to users).
 // Users interact with deployments by AppName within a project.
 type Deployment struct {
 	ID           string            `json:"ID"`
@@ -682,7 +682,7 @@ func (c *Client) ensureToken(ctx context.Context) error {
 	}
 	newTok, err := auth.Refresh(ctx, c.authDomain, c.clientID, c.token.RefreshToken)
 	if err != nil {
-		return fmt.Errorf("token refresh failed (%w) — run 'heroctl login' again", err)
+		return fmt.Errorf("token refresh failed (%w); run 'heroctl login' again", err)
 	}
 	if err := auth.Save(newTok); err != nil {
 		return fmt.Errorf("save refreshed token: %w", err)
