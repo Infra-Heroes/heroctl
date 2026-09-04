@@ -136,21 +136,21 @@ type Project struct {
 // ID is the UUID — the canonical deployment identifier (not shown to users).
 // Users interact with deployments by AppName within a project.
 type Deployment struct {
-	ID           string            `json:"ID"`
-	ProjectID    string            `json:"ProjectID"`
-	AppName      string            `json:"AppName"`
-	Image        string            `json:"Image"`
-	Status       string            `json:"Status"`
-	CPU          int32             `json:"Cpu"`
-	MemoryMB     int32             `json:"MemoryMb"`
-	Port         int32             `json:"Port"`
-	Hostname     string            `json:"Hostname"`
-	ServiceScope string            `json:"ServiceScope"`
-	Labels       map[string]string `json:"Labels,omitempty"`
-	CreatedAt    string            `json:"CreatedAt"`
-	MinReplicas  int32             `json:"MinReplicas"`
-	MaxReplicas  int32             `json:"MaxReplicas"`
-	Replicas     int32             `json:"Replicas"`
+	ID           string            `json:"id"`
+	ProjectID    string            `json:"project_id"`
+	AppName      string            `json:"app_name"`
+	Image        string            `json:"image"`
+	Status       string            `json:"status"`
+	CPU          int32             `json:"cpu"`
+	MemoryMB     int32             `json:"memory_mb"`
+	Port         int32             `json:"port"`
+	Hostname     string            `json:"hostname"`
+	ServiceScope string            `json:"service_scope"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	CreatedAt    string            `json:"created_at"`
+	MinReplicas  int32             `json:"min_replicas"`
+	MaxReplicas  int32             `json:"max_replicas"`
+	Replicas     int32             `json:"replicas"`
 }
 
 // DeploymentCreated is the response from POST /api/v1/projects/{id}/deployments.
