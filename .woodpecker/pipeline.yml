@@ -32,6 +32,16 @@ steps:
         from_secret: client_id
     commands:
       - apk add --no-cache git
+      # A release binary with no client id cannot start the device flow, so it
+      # cannot log in to anything - and the build succeeds regardless, because
+      # an empty -X value is a perfectly good empty string. internal/build says
+      # the defaults are empty "so that a misconfigured build fails loudly";
+      # this is where it gets to.
+      - |
+        if [ "${CI_PIPELINE_EVENT}" = "tag" ] && [ -z "$${CLIENT_ID}" ]; then
+          echo "CLIENT_ID is not set: a released binary would be unable to sign in." >&2
+          exit 1
+        fi
       - CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/Infra-Heroes/heroctl/internal/build.ServerURL=https://api.infra-heroes.de -X github.com/Infra-Heroes/heroctl/internal/build.AuthDomain=auth.infra-heroes.de -X github.com/Infra-Heroes/heroctl/internal/build.ClientID=$${CLIENT_ID} -X github.com/Infra-Heroes/heroctl/internal/build.Version=${CI_COMMIT_TAG:-dev}" -o heroctl ./cmd/heroctl
       - |
         if [ "${CI_PIPELINE_EVENT}" = "tag" ] || [ "${CI_PIPELINE_EVENT}" = "manual" ]; then
@@ -48,16 +58,24 @@ steps:
           done
         fi
 
+  # Publishes to Forgejo, where this repository actually lives.
+  #
+  # It still pointed at codeberg.org - api_key, base_url and all - months after
+  # the move, and `failure: ignore` meant every tagged build reported green
+  # while publishing nothing. The repository has no releases at all, so
+  # customers have no binaries: the one thing this pipeline exists to produce.
+  #
+  # The ignore is gone with it. A release step whose failure is ignored is a
+  # release step nobody finds out about.
   release:
     image: woodpeckerci/plugin-gitea-release
-    failure: ignore
     when:
       event: tag
       ref: refs/tags/v*
     settings:
       api_key:
-        from_secret: codeberg_token
-      base_url: https://codeberg.org
+        from_secret: gitea_token
+      base_url: https://git.infra-heroes.de
       files:
         - dist/*
       title: ${CI_COMMIT_TAG}
@@ -72,11 +90,11 @@ steps:
       - event: push
         branch: main
     settings:
-      registry: codeberg.org
-      repo: codeberg.org/infraheroes/heroctl
+      registry: git.infra-heroes.de
+      repo: git.infra-heroes.de/infraheroes/heroctl
       username: dominikludwig1995
       password:
-        from_secret: codeberg_token
+        from_secret: gitea_token
       platforms: linux/amd64,linux/arm64
       tags:
         - ${CI_COMMIT_TAG:-latest}
