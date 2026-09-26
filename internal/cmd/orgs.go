@@ -9,7 +9,7 @@ import (
 func orgsCmd(deps *Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "orgs",
-		Short: "Show org info and credit balance",
+		Short: "Show org info and prepaid balance",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
@@ -18,14 +18,14 @@ func orgsCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("get org: %w", err)
 			}
 
-			credits, err := deps.Client.GetCredits(ctx, org.ID)
+			balance, err := deps.Client.GetBalance(ctx, org.ID)
 			if err != nil {
-				return fmt.Errorf("get credits: %w", err)
+				return fmt.Errorf("get balance: %w", err)
 			}
 
 			fmt.Printf("Name:     %s\n", org.Name)
 			fmt.Printf("VM cap:   %d\n", org.VmCap)
-			fmt.Printf("Credits:  %s\n", formatCredits(credits))
+			fmt.Printf("Balance:  %s EUR\n", formatEuro(balance.MicroEUR))
 			return nil
 		},
 	}

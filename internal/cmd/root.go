@@ -67,7 +67,8 @@ func newRootCmd() *cobra.Command {
 	}
 
 	root.AddCommand(
-		creditsCmd(&deps),
+		balanceCmd(&deps),
+		pricingCmd(&deps),
 		billingCmd(&deps),
 		loginCmd(),
 		signupCmd(),

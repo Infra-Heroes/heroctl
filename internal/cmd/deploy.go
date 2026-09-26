@@ -261,10 +261,12 @@ func deploymentError(err error, projectName string) error {
 	switch {
 	case strings.Contains(msg, "vm cap"):
 		return fmt.Errorf("%s; stop or delete an existing deployment first with: heroctl deployments list --project %s", err, projectName)
-	case strings.Contains(msg, "credit"):
-		// heroctl cannot buy credits; point at the balance and leave the
-		// top-up to the platform.
-		return fmt.Errorf("%s; check your balance with: heroctl credits", err)
+	case strings.Contains(msg, "balance"):
+		// hero-api answers a rejected deployment with "insufficient balance".
+		// This used to match on "credit", which stopped appearing when billing
+		// moved to euros — so the one error a new customer is most likely to
+		// hit came back with no way out named.
+		return fmt.Errorf("%s; check your balance with: heroctl balance, then: heroctl balance topup <amount>", err)
 	default:
 		return fmt.Errorf("create deployment: %w", err)
 	}
