@@ -128,13 +128,13 @@ func TestBillingSet_ValidatesBeforeCalling(t *testing.T) {
 	}
 }
 
-func TestCredits_GraceWindowIsSurfaced(t *testing.T) {
+func TestBalance_GraceWindowIsSurfaced(t *testing.T) {
 	// The grace window exists to warn. If nothing shows it, the customer only
 	// learns about it when their deployments stop.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/credits") {
+		if strings.HasSuffix(r.URL.Path, "/balance") {
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"credits": -1.5, "milli_credits": -1500,
+				"balance_micro_eur": -1_500_000, "balance_eur": -1.5,
 				"grace_until": "2026-08-25T12:00:00Z",
 			})
 			return
@@ -143,32 +143,38 @@ func TestCredits_GraceWindowIsSurfaced(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	out := runCmd(t, srv, creditsCmd)
+	out := runCmd(t, srv, balanceCmd)
 
-	if !strings.Contains(out, "Out of credits") {
+	if !strings.Contains(out, "Out of balance") {
 		t.Errorf("the grace window must be announced, got:\n%s", out)
 	}
-	if !strings.Contains(out, "credits topup") {
+	if !strings.Contains(out, "balance topup") {
 		t.Errorf("it must say how to fix it, got:\n%s", out)
+	}
+	// A negative balance is real and must be shown as such, not clamped.
+	if !strings.Contains(out, "-1.50 EUR") {
+		t.Errorf("the negative balance must be shown, got:\n%s", out)
 	}
 }
 
-func TestCredits_NoGraceNoWarning(t *testing.T) {
+func TestBalance_NoGraceNoWarning(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/credits") {
-			_ = json.NewEncoder(w).Encode(map[string]any{"credits": 42.0, "milli_credits": 42000})
+		if strings.HasSuffix(r.URL.Path, "/balance") {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"balance_micro_eur": 42_000_000, "balance_eur": 42.0,
+			})
 			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"ID": "org-1", "Name": "acme", "VmCap": 2})
 	}))
 	defer srv.Close()
 
-	out := runCmd(t, srv, creditsCmd)
+	out := runCmd(t, srv, balanceCmd)
 
-	if strings.Contains(out, "Out of credits") {
+	if strings.Contains(out, "Out of balance") {
 		t.Errorf("a healthy balance must not warn, got:\n%s", out)
 	}
-	if !strings.Contains(out, "42.000") {
+	if !strings.Contains(out, "42.00 EUR") {
 		t.Errorf("balance missing, got:\n%s", out)
 	}
 }

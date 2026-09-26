@@ -48,26 +48,31 @@ type Org struct {
 	CreatedAt   string `json:"CreatedAt"`
 }
 
-// Credits is the response from GET /api/v1/orgs/{id}/credits.
-type Credits struct {
-	Credits      float64 `json:"credits"`
-	MilliCredits int64   `json:"milli_credits"`
+// Balance is the response from GET /api/v1/orgs/{id}/balance.
+//
+// hero-api stores prepaid balances as micro-euro (1 EUR = 1 000 000) so
+// sub-cent usage is billed with integer arithmetic, and sends both that
+// integer and a float for display. MicroEUR is the authoritative one; EUR is
+// only ever a fallback for a response that omits it.
+type Balance struct {
+	MicroEUR int64   `json:"balance_micro_eur"`
+	EUR      float64 `json:"balance_eur"`
 	// GraceUntil is present only while the org is inside the grace window that
 	// follows a balance hitting zero. Empty means not in grace, so its absence
 	// needs no separate check.
 	GraceUntil string `json:"grace_until"`
 }
 
-// LedgerEntry is one row of the credit history.
+// LedgerEntry is one row of the balance history.
 type LedgerEntry struct {
-	ID                string  `json:"id"`
-	DeltaMilliCredits int64   `json:"delta_milli_credits"`
-	DeltaCredits      float64 `json:"delta_credits"`
-	Reason            string  `json:"reason"`
-	CreatedAt         string  `json:"created_at"`
+	ID            string  `json:"id"`
+	DeltaMicroEUR int64   `json:"delta_micro_eur"`
+	DeltaEUR      float64 `json:"delta_eur"`
+	Reason        string  `json:"reason"`
+	CreatedAt     string  `json:"created_at"`
 }
 
-// Ledger is the response from GET /api/v1/credits/ledger.
+// Ledger is the response from GET /api/v1/balance/ledger.
 type Ledger struct {
 	Entries []LedgerEntry `json:"entries"`
 	Total   int64         `json:"total"`
@@ -75,31 +80,42 @@ type Ledger struct {
 	Offset  int32         `json:"offset"`
 }
 
-// CreditPackage is one purchasable top-up bundle.
-type CreditPackage struct {
-	ID           string `json:"id"`
-	Label        string `json:"label"`
-	AmountEUR    string `json:"amount_eur"`
-	MilliCredits int64  `json:"milli_credits"`
-	Credits      int64  `json:"credits"`
-	BonusPercent int    `json:"bonus_percent"`
+// Pricing is the response from GET /api/v1/pricing: the rates the billing
+// worker actually charges by, read from the same constants, plus the bounds on
+// a top-up.
+//
+// Only the integer micro-euro fields are taken. The endpoint also sends *_eur
+// floats for display, but formatting those here would reintroduce exactly the
+// rounding the integers exist to avoid.
+type Pricing struct {
+	VCPUHourMicroEUR   int64 `json:"vcpu_hour_micro_eur"`
+	GBRAMHourMicroEUR  int64 `json:"gb_ram_hour_micro_eur"`
+	GBDiskHourMicroEUR int64 `json:"gb_disk_hour_micro_eur"`
+	MinTopUpMicroEUR   int64 `json:"min_topup_micro_eur"`
+	MaxTopUpMicroEUR   int64 `json:"max_topup_micro_eur"`
 }
 
 // Payment is one row of the payment history.
+//
+// Status is what the customer needs to know rather than Mollie's own field: a
+// refund or chargeback leaves Mollie on "paid", and hero-api reports
+// "refunded" for those instead.
 type Payment struct {
-	ID           string `json:"id"`
-	MollieID     string `json:"mollie_id"`
-	MilliCredits int64  `json:"milli_credits"`
-	Status       string `json:"status"`
-	CheckoutURL  string `json:"checkout_url"`
-	CreatedAt    string `json:"created_at"`
+	ID       string `json:"id"`
+	MollieID string `json:"mollie_id"`
+	// AmountEUR is a decimal string, not a float: it is the gross amount that
+	// went on an invoice, and must be reproduced exactly as invoiced.
+	AmountEUR     string `json:"amount_eur"`
+	Status        string `json:"status"`
+	CheckoutURL   string `json:"checkout_url"`
+	InvoiceNumber string `json:"invoice_number"`
+	CreatedAt     string `json:"created_at"`
 }
 
 // Checkout is the response from POST /api/v1/payments/checkout.
 type Checkout struct {
 	PaymentID   string `json:"payment_id"`
 	CheckoutURL string `json:"checkout_url"`
-	Package     string `json:"package"`
 	AmountEUR   string `json:"amount_eur"`
 }
 
@@ -249,13 +265,13 @@ func (c *Client) CreateOrg(ctx context.Context, name string) (*Org, error) {
 	return &out, c.do(ctx, http.MethodPost, "/api/v1/orgs", map[string]string{"name": name}, &out)
 }
 
-// GetCredits returns the current credit balance for the given internal org ID.
-func (c *Client) GetCredits(ctx context.Context, orgID string) (*Credits, error) {
-	var out Credits
-	return &out, c.do(ctx, http.MethodGet, "/api/v1/orgs/"+orgID+"/credits", nil, &out)
+// GetBalance returns the current prepaid balance for the given internal org ID.
+func (c *Client) GetBalance(ctx context.Context, orgID string) (*Balance, error) {
+	var out Balance
+	return &out, c.do(ctx, http.MethodGet, "/api/v1/orgs/"+orgID+"/balance", nil, &out)
 }
 
-// GetLedger returns the org's credit history, newest first.
+// GetLedger returns the org's balance history, newest first.
 func (c *Client) GetLedger(ctx context.Context, limit, offset int) (*Ledger, error) {
 	q := url.Values{}
 	if limit > 0 {
@@ -264,7 +280,7 @@ func (c *Client) GetLedger(ctx context.Context, limit, offset int) (*Ledger, err
 	if offset > 0 {
 		q.Set("offset", strconv.Itoa(offset))
 	}
-	path := "/api/v1/credits/ledger"
+	path := "/api/v1/balance/ledger"
 	if encoded := q.Encode(); encoded != "" {
 		path += "?" + encoded
 	}
@@ -272,13 +288,11 @@ func (c *Client) GetLedger(ctx context.Context, limit, offset int) (*Ledger, err
 	return &out, c.do(ctx, http.MethodGet, path, nil, &out)
 }
 
-// ListCreditPackages returns the purchasable top-up bundles. hero-api owns the
-// catalogue; nothing here may invent a price.
-func (c *Client) ListCreditPackages(ctx context.Context) ([]CreditPackage, error) {
-	var out struct {
-		Packages []CreditPackage `json:"packages"`
-	}
-	return out.Packages, c.do(ctx, http.MethodGet, "/api/v1/payments/packages", nil, &out)
+// GetPricing returns the published rates and top-up bounds. hero-api owns
+// every one of these numbers; nothing here may invent or cache a price.
+func (c *Client) GetPricing(ctx context.Context) (*Pricing, error) {
+	var out Pricing
+	return &out, c.do(ctx, http.MethodGet, "/api/v1/pricing", nil, &out)
 }
 
 // ListPayments returns the org's payment history.
@@ -289,11 +303,15 @@ func (c *Client) ListPayments(ctx context.Context) ([]Payment, error) {
 	return out.Payments, c.do(ctx, http.MethodGet, "/api/v1/payments", nil, &out)
 }
 
-// CreateCheckout opens a Mollie checkout for a package and returns where to
-// send the browser.
-func (c *Client) CreateCheckout(ctx context.Context, pkg string) (*Checkout, error) {
+// CreateCheckout opens a Mollie checkout for a top-up of amountEUR and returns
+// where to send the browser.
+//
+// amountEUR is a decimal string rather than a number because that is what
+// hero-api and Mollie both want, and because a float64 cannot hold "25.00"
+// exactly — the one place a cent may not be lost is the amount being charged.
+func (c *Client) CreateCheckout(ctx context.Context, amountEUR string) (*Checkout, error) {
 	var out Checkout
-	body := map[string]string{"package": pkg}
+	body := map[string]string{"amount_eur": amountEUR}
 	return &out, c.do(ctx, http.MethodPost, "/api/v1/payments/checkout", body, &out)
 }
 
