@@ -121,12 +121,24 @@ limits are published by "heroctl pricing".`,
 			}
 
 			fmt.Fprintf(out, "Org:      %s (%s)\n", org.Name, org.ID)
-			fmt.Fprintf(out, "Balance:  %s EUR\n", formatEuro(balance.MicroEUR))
+			if balance.SpendableMicroEUR == nil {
+				fmt.Fprintf(out, "Balance:  %s EUR\n", formatEuro(balance.MicroEUR))
+			} else {
+				fmt.Fprintf(out, "Billing:   %s\n", balance.BillingMode)
+				fmt.Fprintf(out, "Paid:      %s EUR\n", formatEuro(balance.MicroEUR))
+				fmt.Fprintf(out, "Promotion: %s EUR\n", formatEuro(balance.PromotionalMicroEUR))
+				if balance.BillingMode == "internal" {
+					fmt.Fprintln(out, "Usage is metered; prepayment is not required.")
+				} else {
+					fmt.Fprintf(out, "Spendable: %s EUR\n", formatEuro(*balance.SpendableMicroEUR))
+				}
+			}
 
 			// Only set while the org is inside the window that follows a
 			// balance hitting zero. Saying so is the whole point of the
 			// window: deployments are still running, but not for long.
-			if balance.GraceUntil != "" {
+			if balance.GraceUntil != "" && balance.BillingMode != "internal" &&
+				(balance.SpendableMicroEUR == nil || *balance.SpendableMicroEUR <= 0) {
 				until := balance.GraceUntil
 				if t, parseErr := time.Parse(time.RFC3339, balance.GraceUntil); parseErr == nil {
 					until = t.Local().Format("2006-01-02 15:04")
