@@ -57,6 +57,12 @@ type Org struct {
 type Balance struct {
 	MicroEUR int64   `json:"balance_micro_eur"`
 	EUR      float64 `json:"balance_eur"`
+	// Newer APIs keep customer-paid balance separate from promotional credit.
+	// A pointer distinguishes a genuine zero spendable balance from an older
+	// API response that does not expose the credit breakdown yet.
+	BillingMode         string `json:"billing_mode"`
+	PromotionalMicroEUR int64  `json:"promotional_credit_micro_eur"`
+	SpendableMicroEUR   *int64 `json:"spendable_credit_micro_eur"`
 	// GraceUntil is present only while the org is inside the grace window that
 	// follows a balance hitting zero. Empty means not in grace, so its absence
 	// needs no separate check.

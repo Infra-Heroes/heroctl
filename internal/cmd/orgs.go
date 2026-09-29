@@ -25,7 +25,16 @@ func orgsCmd(deps *Deps) *cobra.Command {
 
 			fmt.Printf("Name:     %s\n", org.Name)
 			fmt.Printf("VM cap:   %d\n", org.VmCap)
-			fmt.Printf("Balance:  %s EUR\n", formatEuro(balance.MicroEUR))
+			if balance.SpendableMicroEUR == nil {
+				fmt.Printf("Balance:  %s EUR\n", formatEuro(balance.MicroEUR))
+			} else {
+				fmt.Printf("Billing:  %s\n", balance.BillingMode)
+				fmt.Printf("Paid:     %s EUR\n", formatEuro(balance.MicroEUR))
+				fmt.Printf("Promo:    %s EUR\n", formatEuro(balance.PromotionalMicroEUR))
+				if balance.BillingMode != "internal" {
+					fmt.Printf("Usable:   %s EUR\n", formatEuro(*balance.SpendableMicroEUR))
+				}
+			}
 			return nil
 		},
 	}

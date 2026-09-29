@@ -178,3 +178,50 @@ func TestBalance_NoGraceNoWarning(t *testing.T) {
 		t.Errorf("balance missing, got:\n%s", out)
 	}
 }
+
+func TestBalance_PromotionalCreditIsSpendableWithoutPaidBalance(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/balance") {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"billing_mode": "prepaid", "balance_micro_eur": 0,
+				"promotional_credit_micro_eur": 10_000_000,
+				"spendable_credit_micro_eur":   10_000_000,
+				// A stale grace marker must not claim this tenant is out of credit.
+				"grace_until": "2026-08-25T12:00:00Z",
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ID": "org-1", "Name": "acme"})
+	}))
+	defer srv.Close()
+
+	out := runCmd(t, srv, balanceCmd)
+	for _, want := range []string{"Paid:      0.00 EUR", "Promotion: 10.00 EUR", "Spendable: 10.00 EUR"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Out of balance") {
+		t.Errorf("eligible promotion was ignored:\n%s", out)
+	}
+}
+
+func TestBalance_InternalModeDoesNotClaimPrepaymentRequired(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/balance") {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"billing_mode": "internal", "balance_micro_eur": 0,
+				"spendable_credit_micro_eur": 0,
+				"grace_until":                "2026-08-25T12:00:00Z",
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ID": "org-1", "Name": "acme"})
+	}))
+	defer srv.Close()
+
+	out := runCmd(t, srv, balanceCmd)
+	if !strings.Contains(out, "prepayment is not required") || strings.Contains(out, "Out of balance") {
+		t.Errorf("wrong internal billing display:\n%s", out)
+	}
+}
