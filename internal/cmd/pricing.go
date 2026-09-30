@@ -35,17 +35,17 @@ replica; volume storage is billed while the volume exists, attached or not.`,
 			}
 
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "RESOURCE\tRATE (EUR)\tPER")
-			fmt.Fprintf(w, "vCPU\t%s\thour, per replica\n", formatEuroMicro(p.VCPUHourMicroEUR))
-			fmt.Fprintf(w, "RAM\t%s\tGB-hour, per replica\n", formatEuroMicro(p.GBRAMHourMicroEUR))
-			fmt.Fprintf(w, "Volume storage\t%s\tGB-hour\n", formatEuroMicro(p.GBDiskHourMicroEUR))
+			_, _ = fmt.Fprintln(w, "RESOURCE\tRATE (EUR)\tPER")
+			_, _ = fmt.Fprintf(w, "vCPU\t%s\thour, per replica\n", formatEuroMicro(p.VCPUHourMicroEUR))
+			_, _ = fmt.Fprintf(w, "RAM\t%s\tGB-hour, per replica\n", formatEuroMicro(p.GBRAMHourMicroEUR))
+			_, _ = fmt.Fprintf(w, "Volume storage\t%s\tGB-hour\n", formatEuroMicro(p.GBDiskHourMicroEUR))
 			if err := w.Flush(); err != nil {
 				return err
 			}
 
-			fmt.Fprintf(out, "\nTop-up:   %s to %s EUR per payment\n",
+			_, _ = fmt.Fprintf(out, "\nTop-up:   %s to %s EUR per payment\n",
 				formatEuro(p.MinTopUpMicroEUR), formatEuro(p.MaxTopUpMicroEUR))
-			fmt.Fprintln(out, "          heroctl balance topup <amount>")
+			_, _ = fmt.Fprintln(out, "          heroctl balance topup <amount>")
 			return nil
 		},
 	}

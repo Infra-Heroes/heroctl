@@ -128,7 +128,7 @@ limits are published by "heroctl pricing".`,
 				_, _ = fmt.Fprintf(out, "Paid:      %s EUR\n", formatEuro(balance.MicroEUR))
 				_, _ = fmt.Fprintf(out, "Promotion: %s EUR\n", formatEuro(balance.PromotionalMicroEUR))
 				if balance.BillingMode == "internal" {
-					fmt.Fprintln(out, "Usage is metered; prepayment is not required.")
+					_, _ = fmt.Fprintln(out, "Usage is metered; prepayment is not required.")
 				} else {
 					_, _ = fmt.Fprintf(out, "Spendable: %s EUR\n", formatEuro(*balance.SpendableMicroEUR))
 				}
@@ -166,12 +166,12 @@ func balanceLedgerCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("get ledger: %w", err)
 			}
 			if len(ledger.Entries) == 0 {
-				fmt.Fprintln(out, "No ledger entries yet.")
+				_, _ = fmt.Fprintln(out, "No ledger entries yet.")
 				return nil
 			}
 
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "DATE\tCHANGE (EUR)\tREASON")
+			_, _ = fmt.Fprintln(w, "DATE\tCHANGE (EUR)\tREASON")
 			for _, e := range ledger.Entries {
 				when := e.CreatedAt
 				if t, parseErr := time.Parse(time.RFC3339, e.CreatedAt); parseErr == nil {
@@ -230,7 +230,7 @@ The amount is free-form within the limits hero-api publishes; see
 			_, _ = fmt.Fprintf(out, "Complete the payment here:\n%s\n\n", checkout.CheckoutURL)
 			// The balance is credited by Mollie's webhook, not on return from
 			// the browser, so there is nothing for this process to wait on.
-			fmt.Fprintln(out, "The balance is credited once the payment confirms. Check with: heroctl balance")
+			_, _ = fmt.Fprintln(out, "The balance is credited once the payment confirms. Check with: heroctl balance")
 			return nil
 		},
 	}
@@ -247,11 +247,11 @@ func balancePaymentsCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("list payments: %w", err)
 			}
 			if len(payments) == 0 {
-				fmt.Fprintln(out, "No payments yet.")
+				_, _ = fmt.Fprintln(out, "No payments yet.")
 				return nil
 			}
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "DATE\tSTATUS\tAMOUNT (EUR)\tINVOICE\tPAYMENT")
+			_, _ = fmt.Fprintln(w, "DATE\tSTATUS\tAMOUNT (EUR)\tINVOICE\tPAYMENT")
 			for _, p := range payments {
 				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 					localDate(p.CreatedAt), p.Status, paymentAmount(p), invoiceOrDash(p), p.MollieID)
