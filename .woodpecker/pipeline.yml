@@ -1,5 +1,10 @@
+# The Forgejo pipeline (ci.infra-heroes.de): publishes to the Forgejo
+# registry and Forgejo releases. The repository is push-mirrored to Codeberg,
+# where codeberg.yml does the same against Codeberg - each forge's CI runs
+# only its own file, so neither tries to log in to the other's registry.
 when:
-  event: [push, pull_request, tag, manual]
+  - event: [push, pull_request, tag, manual]
+    evaluate: 'not (CI_FORGE_URL contains "codeberg.org")'
 
 steps:
   # Both of these failed on every run since the first pipeline and nobody
