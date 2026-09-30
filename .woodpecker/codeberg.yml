@@ -74,4 +74,8 @@ steps:
         - AUTH_DOMAIN=auth.infra-heroes.de
       build_args_from_env:
         - CLIENT_ID
-    secrets: [ codeberg_token, client_id ]
+    secrets:
+      - source: codeberg_token
+        target: codeberg_token
+      - source: client_id
+        target: CLIENT_ID
