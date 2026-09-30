@@ -40,9 +40,9 @@ func secretsSetCmd(deps *Deps) *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(os.Stderr, "Enter value for %q (input hidden): ", key)
-			valueBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-			fmt.Fprintln(os.Stderr)
+			_, _ = fmt.Fprintf(os.Stderr, "Enter value for %q (input hidden): ", key)
+			valueBytes, err := term.ReadPassword(int(os.Stdin.Fd())) // #nosec G115 -- a file descriptor always fits in an int
+			_, _ = fmt.Fprintln(os.Stderr)
 			if err != nil {
 				return fmt.Errorf("read secret value: %w", err)
 			}

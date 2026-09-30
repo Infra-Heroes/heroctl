@@ -2,17 +2,18 @@ when:
   event: [push, pull_request, tag, manual]
 
 steps:
+  # Both of these failed on every run since the first pipeline and nobody
+  # saw it: `failure: ignore` kept the build green. lint never even ran - the
+  # image has no curl, so golangci-lint was never installed. They gate again.
   lint:
     image: golang:1.26-alpine
-    failure: ignore
     commands:
-      - apk add --no-cache git build-base
+      - apk add --no-cache git build-base curl
       - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin v2.12.2
       - golangci-lint run --verbose --timeout 5m
 
   security:
     image: securego/gosec:2.24.6
-    failure: ignore
     environment:
       GOTOOLCHAIN: auto
     commands:
