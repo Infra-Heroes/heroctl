@@ -31,7 +31,7 @@ func TestOrgsSetLimits(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
 				t.Fatalf("decode body: %v", err)
 			}
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"ID": "org-1", "Name": "infraheroes",
 				"MaxProjects": 5, "VmCap": 2, "MaxCpu": 1, "MaxMemoryMb": 2048,
 			})
@@ -85,9 +85,9 @@ func TestOrgsSetLimits(t *testing.T) {
 			paths = append(paths, r.Method+" "+r.URL.Path)
 			switch r.URL.Path {
 			case "/api/v1/orgs/me":
-				json.NewEncoder(w).Encode(map[string]any{"ID": "own-org-id", "Name": "infraheroes"})
+				_ = json.NewEncoder(w).Encode(map[string]any{"ID": "own-org-id", "Name": "infraheroes"})
 			default:
-				json.NewEncoder(w).Encode(map[string]any{
+				_ = json.NewEncoder(w).Encode(map[string]any{
 					"ID": "own-org-id", "Name": "infraheroes",
 					"MaxProjects": 9, "VmCap": 2, "MaxCpu": 1, "MaxMemoryMb": 2048,
 				})
@@ -110,7 +110,7 @@ func TestOrgsSetLimits(t *testing.T) {
 	t.Run("surfaces API error", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(map[string]string{"error": "only platform admins can update org limits"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "only platform admins can update org limits"})
 		}))
 		defer srv.Close()
 

@@ -51,8 +51,8 @@ what can be bought (packages), buying it (topup) and what was bought
 				return fmt.Errorf("get credits: %w", err)
 			}
 
-			fmt.Fprintf(out, "Org:      %s (%s)\n", org.Name, org.ID)
-			fmt.Fprintf(out, "Credits:  %s\n", formatCredits(credits))
+			_, _ = fmt.Fprintf(out, "Org:      %s (%s)\n", org.Name, org.ID)
+			_, _ = fmt.Fprintf(out, "Credits:  %s\n", formatCredits(credits))
 
 			// Only set while the org is inside the window that follows a
 			// balance hitting zero. Saying so is the whole point of the
@@ -62,8 +62,8 @@ what can be bought (packages), buying it (topup) and what was bought
 				if t, parseErr := time.Parse(time.RFC3339, credits.GraceUntil); parseErr == nil {
 					until = t.Local().Format("2006-01-02 15:04")
 				}
-				fmt.Fprintf(out, "\n⚠  Out of credits. Deployments stop after %s.\n", until)
-				fmt.Fprintf(out, "   Top up with: heroctl credits topup <package>\n")
+				_, _ = fmt.Fprintf(out, "\n⚠  Out of credits. Deployments stop after %s.\n", until)
+				_, _ = fmt.Fprintf(out, "   Top up with: heroctl credits topup <package>\n")
 			}
 			return nil
 		},
@@ -85,12 +85,12 @@ func creditsLedgerCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("get ledger: %w", err)
 			}
 			if len(ledger.Entries) == 0 {
-				fmt.Fprintln(out, "No ledger entries yet.")
+				_, _ = fmt.Fprintln(out, "No ledger entries yet.")
 				return nil
 			}
 
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "DATE\tCHANGE\tREASON")
+			_, _ = fmt.Fprintln(w, "DATE\tCHANGE\tREASON")
 			for _, e := range ledger.Entries {
 				when := e.CreatedAt
 				if t, parseErr := time.Parse(time.RFC3339, e.CreatedAt); parseErr == nil {
@@ -98,7 +98,7 @@ func creditsLedgerCmd(deps *Deps) *cobra.Command {
 				}
 				// The sign is the most important column: a top-up and a usage
 				// charge must never be mistaken for one another at a glance.
-				fmt.Fprintf(w, "%s\t%+.3f\t%s\n", when, e.DeltaCredits, e.Reason)
+				_, _ = fmt.Fprintf(w, "%s\t%+.3f\t%s\n", when, e.DeltaCredits, e.Reason)
 			}
 			if err := w.Flush(); err != nil {
 				return err
@@ -106,7 +106,7 @@ func creditsLedgerCmd(deps *Deps) *cobra.Command {
 
 			shown := int64(ledger.Offset) + int64(len(ledger.Entries))
 			if shown < ledger.Total {
-				fmt.Fprintf(out, "\nShowing %d of %d. Next page: --offset %d\n", shown, ledger.Total, shown)
+				_, _ = fmt.Fprintf(out, "\nShowing %d of %d. Next page: --offset %d\n", shown, ledger.Total, shown)
 			}
 			return nil
 		},
@@ -127,13 +127,13 @@ func creditsPackagesCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("list packages: %w", err)
 			}
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "PACKAGE\tPRICE\tCREDITS\tBONUS")
+			_, _ = fmt.Fprintln(w, "PACKAGE\tPRICE\tCREDITS\tBONUS")
 			for _, p := range packages {
 				bonus := "-"
 				if p.BonusPercent > 0 {
 					bonus = fmt.Sprintf("+%d%%", p.BonusPercent)
 				}
-				fmt.Fprintf(w, "%s\t%s EUR\t%d\t%s\n", p.ID, p.AmountEUR, p.Credits, bonus)
+				_, _ = fmt.Fprintf(w, "%s\t%s EUR\t%d\t%s\n", p.ID, p.AmountEUR, p.Credits, bonus)
 			}
 			return w.Flush()
 		},
@@ -159,12 +159,12 @@ func creditsTopupCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("open checkout: %w", err)
 			}
 
-			fmt.Fprintf(out, "Package:  %s (%s EUR)\n", checkout.Package, checkout.AmountEUR)
-			fmt.Fprintf(out, "Payment:  %s\n\n", checkout.PaymentID)
-			fmt.Fprintf(out, "Complete the payment here:\n%s\n\n", checkout.CheckoutURL)
+			_, _ = fmt.Fprintf(out, "Package:  %s (%s EUR)\n", checkout.Package, checkout.AmountEUR)
+			_, _ = fmt.Fprintf(out, "Payment:  %s\n\n", checkout.PaymentID)
+			_, _ = fmt.Fprintf(out, "Complete the payment here:\n%s\n\n", checkout.CheckoutURL)
 			// Credits arrive via Mollie's webhook, not on return from the
 			// browser, so there is nothing for this process to wait on.
-			fmt.Fprintln(out, "Credits are booked once the payment confirms. Check with: heroctl credits")
+			_, _ = fmt.Fprintln(out, "Credits are booked once the payment confirms. Check with: heroctl credits")
 			return nil
 		},
 	}
@@ -181,17 +181,17 @@ func creditsPaymentsCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("list payments: %w", err)
 			}
 			if len(payments) == 0 {
-				fmt.Fprintln(out, "No payments yet.")
+				_, _ = fmt.Fprintln(out, "No payments yet.")
 				return nil
 			}
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "DATE\tSTATUS\tCREDITS\tPAYMENT")
+			_, _ = fmt.Fprintln(w, "DATE\tSTATUS\tCREDITS\tPAYMENT")
 			for _, p := range payments {
 				when := p.CreatedAt
 				if t, parseErr := time.Parse(time.RFC3339, p.CreatedAt); parseErr == nil {
 					when = t.Local().Format("2006-01-02 15:04")
 				}
-				fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", when, p.Status, p.MilliCredits/1000, p.MollieID)
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", when, p.Status, p.MilliCredits/1000, p.MollieID)
 			}
 			return w.Flush()
 		},

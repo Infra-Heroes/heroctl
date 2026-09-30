@@ -21,25 +21,25 @@ func billingCmd(deps *Deps) *cobra.Command {
 				// No profile is the normal state before a first purchase, so
 				// it gets an instruction rather than an error.
 				if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "no billing profile") {
-					fmt.Fprintln(out, "No billing details set. Credits cannot be purchased until they are.")
-					fmt.Fprintln(out, "Set them with: heroctl billing set --help")
+					_, _ = fmt.Fprintln(out, "No billing details set. Credits cannot be purchased until they are.")
+					_, _ = fmt.Fprintln(out, "Set them with: heroctl billing set --help")
 					return nil
 				}
 				return fmt.Errorf("get billing profile: %w", err)
 			}
 
-			fmt.Fprintf(out, "Type:     %s\n", profile.RecipientType)
-			fmt.Fprintf(out, "Name:     %s\n", profile.Name)
-			fmt.Fprintf(out, "Email:    %s\n", profile.Email)
-			fmt.Fprintf(out, "Address:  %s, %s %s, %s\n",
+			_, _ = fmt.Fprintf(out, "Type:     %s\n", profile.RecipientType)
+			_, _ = fmt.Fprintf(out, "Name:     %s\n", profile.Name)
+			_, _ = fmt.Fprintf(out, "Email:    %s\n", profile.Email)
+			_, _ = fmt.Fprintf(out, "Address:  %s, %s %s, %s\n",
 				profile.Street, profile.PostalCode, profile.City, profile.Country)
 			if profile.VATNumber != "" {
-				fmt.Fprintf(out, "VAT no:   %s\n", profile.VATNumber)
+				_, _ = fmt.Fprintf(out, "VAT no:   %s\n", profile.VATNumber)
 			}
 			if profile.VATReverseCharge {
-				fmt.Fprintf(out, "VAT:      reverse charge (0%%)\n")
+				_, _ = fmt.Fprintf(out, "VAT:      reverse charge (0%%)\n")
 			} else if profile.VATRate != "" {
-				fmt.Fprintf(out, "VAT:      %s%%\n", profile.VATRate)
+				_, _ = fmt.Fprintf(out, "VAT:      %s%%\n", profile.VATRate)
 			}
 			return nil
 		},
@@ -92,11 +92,11 @@ func billingSetCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("save billing profile: %w", err)
 			}
 
-			fmt.Fprintln(out, "Billing details saved.")
+			_, _ = fmt.Fprintln(out, "Billing details saved.")
 			if saved.VATReverseCharge {
-				fmt.Fprintln(out, "Invoices will be issued at 0% under reverse charge.")
+				_, _ = fmt.Fprintln(out, "Invoices will be issued at 0% under reverse charge.")
 			} else if saved.VATRate != "" {
-				fmt.Fprintf(out, "Invoices will carry %s%% VAT.\n", saved.VATRate)
+				_, _ = fmt.Fprintf(out, "Invoices will carry %s%% VAT.\n", saved.VATRate)
 			}
 			return nil
 		},

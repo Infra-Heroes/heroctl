@@ -47,7 +47,7 @@ func loginCmd() *cobra.Command {
 			fmt.Println("Waiting for authentication...")
 
 			// Best-effort browser open — ignore failures.
-			_ = exec.CommandContext(ctx, "xdg-open", dar.VerificationURIComplete).Start()
+			_ = exec.CommandContext(ctx, "xdg-open", dar.VerificationURIComplete).Start() // #nosec G204 -- fixed program, the URL is one argument, no shell
 
 			expires := time.Duration(dar.ExpiresIn) * time.Second
 			pollCtx, cancel := context.WithTimeout(ctx, expires)

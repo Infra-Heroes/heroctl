@@ -27,7 +27,7 @@ func validateCmd() *cobra.Command {
 				return fmt.Errorf("resolve path: %w", err)
 			}
 
-			f, err := os.Open(path)
+			f, err := os.Open(path) // #nosec G304 -- opening the file the user named is the command
 			if err != nil {
 				return fmt.Errorf("open file: %w", err)
 			}
