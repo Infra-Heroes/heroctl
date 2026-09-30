@@ -79,6 +79,9 @@ steps:
         ref: refs/tags/v*
       - event: push
         branch: main
+    environment:
+      CLIENT_ID:
+        from_secret: client_id
     settings:
       registry: git.infra-heroes.de
       repo: git.infra-heroes.de/infraheroes/heroctl
@@ -93,8 +96,3 @@ steps:
         - AUTH_DOMAIN=auth.infra-heroes.de
       build_args_from_env:
         - CLIENT_ID
-    secrets:
-      - source: gitea_token
-        target: gitea_token
-      - source: client_id
-        target: CLIENT_ID

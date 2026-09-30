@@ -53,13 +53,17 @@ steps:
       files:
         - dist/*
 
-  docker:
+  docker-codeberg:
     image: woodpeckerci/plugin-docker-buildx:6.1.0
+    privileged: true
     when:
       - event: tag
         ref: refs/tags/v*
       - event: push
         branch: main
+    environment:
+      CLIENT_ID:
+        from_secret: client_id
     settings:
       registry: codeberg.org
       repo: codeberg.org/infraheroes/heroctl
@@ -74,8 +78,3 @@ steps:
         - AUTH_DOMAIN=auth.infra-heroes.de
       build_args_from_env:
         - CLIENT_ID
-    secrets:
-      - source: codeberg_token
-        target: codeberg_token
-      - source: client_id
-        target: CLIENT_ID
