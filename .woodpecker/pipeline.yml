@@ -93,7 +93,11 @@ steps:
     settings:
       registry: git.infra-heroes.de
       repo: git.infra-heroes.de/infraheroes/heroctl
-      username: dominikludwig1995
+      # The Forgejo account the gitea_token secret belongs to. It said
+      # dominikludwig1995 - the commit author and old GitHub name - which is
+      # no Forgejo user at all, so every login failed with "error
+      # authenticating" and main went red on the docker step.
+      username: dominik
       password:
         from_secret: gitea_token
       platforms: linux/amd64,linux/arm64
