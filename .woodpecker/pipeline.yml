@@ -1,15 +1,8 @@
-# The Forgejo pipeline (ci.infra-heroes.de): publishes to the Forgejo
-# registry and Forgejo releases. The repository is push-mirrored to Codeberg,
-# where codeberg.yml does the same against Codeberg - each forge's CI runs
-# only its own file, so neither tries to log in to the other's registry.
 when:
   - event: [push, pull_request, tag, manual]
     evaluate: 'not (CI_FORGE_URL contains "codeberg.org")'
 
 steps:
-  # Both of these failed on every run since the first pipeline and nobody
-  # saw it: `failure: ignore` kept the build green. lint never even ran - the
-  # image has no curl, so golangci-lint was never installed. They gate again.
   lint:
     image: golang:1.26-alpine
     commands:
@@ -64,15 +57,6 @@ steps:
           done
         fi
 
-  # Publishes to Forgejo, where this repository actually lives.
-  #
-  # It still pointed at codeberg.org - api_key, base_url and all - months after
-  # the move, and `failure: ignore` meant every tagged build reported green
-  # while publishing nothing. The repository has no releases at all, so
-  # customers have no binaries: the one thing this pipeline exists to produce.
-  #
-  # The ignore is gone with it. A release step whose failure is ignored is a
-  # release step nobody finds out about.
   release:
     image: woodpeckerci/plugin-gitea-release
     when:
@@ -98,10 +82,6 @@ steps:
     settings:
       registry: git.infra-heroes.de
       repo: git.infra-heroes.de/infraheroes/heroctl
-      # The Forgejo account the gitea_token secret belongs to. It said
-      # dominikludwig1995 - the commit author and old GitHub name - which is
-      # no Forgejo user at all, so every login failed with "error
-      # authenticating" and main went red on the docker step.
       username: dominik
       password:
         from_secret: gitea_token

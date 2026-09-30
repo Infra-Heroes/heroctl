@@ -70,6 +70,8 @@ steps:
       tags:
         - ${CI_COMMIT_TAG:-latest}
       build_args:
-        SERVER_URL: https://api.infra-heroes.de
-        AUTH_DOMAIN: auth.infra-heroes.de
-        CLIENT_ID: from_secret:client_id
+        - SERVER_URL=https://api.infra-heroes.de
+        - AUTH_DOMAIN=auth.infra-heroes.de
+      build_args_from_env:
+        - CLIENT_ID
+    secrets: [ codeberg_token, client_id ]
