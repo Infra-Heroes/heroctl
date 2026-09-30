@@ -120,17 +120,17 @@ limits are published by "heroctl pricing".`,
 				return fmt.Errorf("get balance: %w", err)
 			}
 
-			fmt.Fprintf(out, "Org:      %s (%s)\n", org.Name, org.ID)
+			_, _ = fmt.Fprintf(out, "Org:      %s (%s)\n", org.Name, org.ID)
 			if balance.SpendableMicroEUR == nil {
-				fmt.Fprintf(out, "Balance:  %s EUR\n", formatEuro(balance.MicroEUR))
+				_, _ = fmt.Fprintf(out, "Balance:  %s EUR\n", formatEuro(balance.MicroEUR))
 			} else {
-				fmt.Fprintf(out, "Billing:   %s\n", balance.BillingMode)
-				fmt.Fprintf(out, "Paid:      %s EUR\n", formatEuro(balance.MicroEUR))
-				fmt.Fprintf(out, "Promotion: %s EUR\n", formatEuro(balance.PromotionalMicroEUR))
+				_, _ = fmt.Fprintf(out, "Billing:   %s\n", balance.BillingMode)
+				_, _ = fmt.Fprintf(out, "Paid:      %s EUR\n", formatEuro(balance.MicroEUR))
+				_, _ = fmt.Fprintf(out, "Promotion: %s EUR\n", formatEuro(balance.PromotionalMicroEUR))
 				if balance.BillingMode == "internal" {
 					fmt.Fprintln(out, "Usage is metered; prepayment is not required.")
 				} else {
-					fmt.Fprintf(out, "Spendable: %s EUR\n", formatEuro(*balance.SpendableMicroEUR))
+					_, _ = fmt.Fprintf(out, "Spendable: %s EUR\n", formatEuro(*balance.SpendableMicroEUR))
 				}
 			}
 
@@ -143,8 +143,8 @@ limits are published by "heroctl pricing".`,
 				if t, parseErr := time.Parse(time.RFC3339, balance.GraceUntil); parseErr == nil {
 					until = t.Local().Format("2006-01-02 15:04")
 				}
-				fmt.Fprintf(out, "\n⚠  Out of balance. Deployments stop after %s.\n", until)
-				fmt.Fprintf(out, "   Top up with: heroctl balance topup <amount>\n")
+				_, _ = fmt.Fprintf(out, "\n⚠  Out of balance. Deployments stop after %s.\n", until)
+				_, _ = fmt.Fprintf(out, "   Top up with: heroctl balance topup <amount>\n")
 			}
 			return nil
 		},
@@ -177,7 +177,7 @@ func balanceLedgerCmd(deps *Deps) *cobra.Command {
 				if t, parseErr := time.Parse(time.RFC3339, e.CreatedAt); parseErr == nil {
 					when = t.Local().Format("2006-01-02 15:04")
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\n", when, signedEuroMicro(e.DeltaMicroEUR), e.Reason)
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", when, signedEuroMicro(e.DeltaMicroEUR), e.Reason)
 			}
 			if err := w.Flush(); err != nil {
 				return err
@@ -185,7 +185,7 @@ func balanceLedgerCmd(deps *Deps) *cobra.Command {
 
 			shown := int64(ledger.Offset) + int64(len(ledger.Entries))
 			if shown < ledger.Total {
-				fmt.Fprintf(out, "\nShowing %d of %d. Next page: --offset %d\n", shown, ledger.Total, shown)
+				_, _ = fmt.Fprintf(out, "\nShowing %d of %d. Next page: --offset %d\n", shown, ledger.Total, shown)
 			}
 			return nil
 		},
@@ -225,9 +225,9 @@ The amount is free-form within the limits hero-api publishes; see
 				return fmt.Errorf("open checkout: %w", err)
 			}
 
-			fmt.Fprintf(out, "Top-up:   %s EUR\n", checkout.AmountEUR)
-			fmt.Fprintf(out, "Payment:  %s\n\n", checkout.PaymentID)
-			fmt.Fprintf(out, "Complete the payment here:\n%s\n\n", checkout.CheckoutURL)
+			_, _ = fmt.Fprintf(out, "Top-up:   %s EUR\n", checkout.AmountEUR)
+			_, _ = fmt.Fprintf(out, "Payment:  %s\n\n", checkout.PaymentID)
+			_, _ = fmt.Fprintf(out, "Complete the payment here:\n%s\n\n", checkout.CheckoutURL)
 			// The balance is credited by Mollie's webhook, not on return from
 			// the browser, so there is nothing for this process to wait on.
 			fmt.Fprintln(out, "The balance is credited once the payment confirms. Check with: heroctl balance")
@@ -253,7 +253,7 @@ func balancePaymentsCmd(deps *Deps) *cobra.Command {
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "DATE\tSTATUS\tAMOUNT (EUR)\tINVOICE\tPAYMENT")
 			for _, p := range payments {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 					localDate(p.CreatedAt), p.Status, paymentAmount(p), invoiceOrDash(p), p.MollieID)
 			}
 			return w.Flush()
