@@ -71,7 +71,7 @@ steps:
       title: ${CI_COMMIT_TAG}
       generate_release_notes: true
 
-  docker:
+  docker-gitea:
     image: woodpeckerci/plugin-docker-buildx:6.1.0
     privileged: true
     when:
@@ -79,9 +79,6 @@ steps:
         ref: refs/tags/v*
       - event: push
         branch: main
-    environment:
-      CLIENT_ID:
-        from_secret: client_id
     settings:
       registry: git.infra-heroes.de
       repo: git.infra-heroes.de/infraheroes/heroctl
@@ -95,4 +92,4 @@ steps:
         - SERVER_URL=https://api.infra-heroes.de
         - AUTH_DOMAIN=auth.infra-heroes.de
       build_args_from_env:
-        - CLIENT_ID
+        - CLIENT_ID=client_id

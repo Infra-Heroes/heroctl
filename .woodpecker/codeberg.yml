@@ -61,9 +61,6 @@ steps:
         ref: refs/tags/v*
       - event: push
         branch: main
-    environment:
-      CLIENT_ID:
-        from_secret: client_id
     settings:
       registry: codeberg.org
       repo: codeberg.org/infraheroes/heroctl
@@ -77,4 +74,4 @@ steps:
         - SERVER_URL=https://api.infra-heroes.de
         - AUTH_DOMAIN=auth.infra-heroes.de
       build_args_from_env:
-        - CLIENT_ID
+        - CLIENT_ID=client_id
