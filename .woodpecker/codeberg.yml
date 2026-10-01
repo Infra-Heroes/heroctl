@@ -63,8 +63,9 @@ steps:
         branch: main
     settings:
       registry: codeberg.org
-      repo: codeberg.org/infraheroes/heroctl
-      username: dominikludwig1995
+      repo: codeberg.org/InfraHeroes/heroctl
+      username: 
+        from_secret: codeberg_user
       password:
         from_secret: codeberg_token
       platforms: linux/amd64,linux/arm64
