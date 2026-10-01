@@ -63,7 +63,7 @@ steps:
         branch: main
     settings:
       registry: codeberg.org
-      repo: codeberg.org/InfraHeroes/heroctl
+      repo: codeberg.org/infraheroes/heroctl
       username: 
         from_secret: codeberg_user
       password:
