@@ -81,8 +81,9 @@ steps:
         branch: main
     settings:
       registry: git.infra-heroes.de
-      repo: git.infra-heroes.de/infraheroes/heroctl
-      username: dominik
+      repo: git.infra-heroes.de/InfraHeroes/heroctl
+      username: 
+        from_secret: gitea_user
       password:
         from_secret: gitea_token
       platforms: linux/amd64,linux/arm64
