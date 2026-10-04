@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -62,5 +64,48 @@ func TestDetectContainerEngine(t *testing.T) {
 				t.Errorf("expected engine %q, got %q", tc.expectedEngine, engine)
 			}
 		})
+	}
+}
+
+// Registry credentials from hero-api live five minutes, so the login has to
+// happen after the build: a slow build used to push with an expired token.
+func TestBuildLoginPushLogsInAfterBuild(t *testing.T) {
+	var calls []string
+	orig := runEngine
+	defer func() { runEngine = orig }()
+	runEngine = func(_ context.Context, _, _ string, args ...string) error {
+		calls = append(calls, args[0])
+		return nil
+	}
+
+	login := func() error { calls = append(calls, "login"); return nil }
+	if err := buildLoginPush(context.Background(), "docker", "reg/org/app:abc", login); err != nil {
+		t.Fatalf("buildLoginPush: %v", err)
+	}
+
+	want := []string{"build", "login", "push"}
+	if strings.Join(calls, ",") != strings.Join(want, ",") {
+		t.Fatalf("engine calls = %v, want %v", calls, want)
+	}
+}
+
+func TestBuildLoginPushSkipsLoginWhenBuildFails(t *testing.T) {
+	orig := runEngine
+	defer func() { runEngine = orig }()
+	runEngine = func(_ context.Context, _, _ string, args ...string) error {
+		if args[0] == "build" {
+			return errors.New("boom")
+		}
+		t.Fatalf("unexpected engine call %v after a failed build", args)
+		return nil
+	}
+
+	loggedIn := false
+	err := buildLoginPush(context.Background(), "docker", "reg/org/app:abc", func() error { loggedIn = true; return nil })
+	if err == nil || !strings.Contains(err.Error(), "docker build") {
+		t.Fatalf("err = %v, want docker build error", err)
+	}
+	if loggedIn {
+		t.Fatal("logged in although the build failed")
 	}
 }
