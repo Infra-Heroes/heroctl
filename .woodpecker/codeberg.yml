@@ -11,13 +11,13 @@ when:
 
 steps:
   test:
-    image: golang:1.26-alpine
+    image: golang:1.27-alpine
     commands:
       - apk add --no-cache git build-base
       - go test ./...
 
   build:
-    image: golang:1.26-alpine
+    image: golang:1.27-alpine
     environment:
       CLIENT_ID:
         from_secret: client_id

@@ -4,7 +4,7 @@ when:
 
 steps:
   lint:
-    image: golang:1.26-alpine
+    image: golang:1.27-alpine
     commands:
       - apk add --no-cache git build-base curl
       - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin v2.14.0
@@ -19,13 +19,13 @@ steps:
       - gosec ./...
 
   test:
-    image: golang:1.26-alpine
+    image: golang:1.27-alpine
     commands:
       - apk add --no-cache git build-base
       - go test -v ./...
 
   build:
-    image: golang:1.26-alpine
+    image: golang:1.27-alpine
     environment:
       CLIENT_ID:
         from_secret: client_id
