@@ -72,7 +72,7 @@ steps:
       generate_release_notes: true
 
   docker-gitea:
-    image: woodpeckerci/plugin-docker-buildx:6.1.0
+    image: woodpeckerci/plugin-docker-buildx:6.1.2
     privileged: true
     when:
       - event: tag

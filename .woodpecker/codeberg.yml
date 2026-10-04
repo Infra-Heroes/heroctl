@@ -54,7 +54,7 @@ steps:
         - dist/*
 
   docker-codeberg:
-    image: woodpeckerci/plugin-docker-buildx:6.1.0
+    image: woodpeckerci/plugin-docker-buildx:6.1.2
     privileged: true
     when:
       - event: tag
