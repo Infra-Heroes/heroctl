@@ -21,7 +21,7 @@ func billingCmd(deps *Deps) *cobra.Command {
 				// No profile is the normal state before a first purchase, so
 				// it gets an instruction rather than an error.
 				if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "no billing profile") {
-					_, _ = fmt.Fprintln(out, "No billing details set. Credits cannot be purchased until they are.")
+					_, _ = fmt.Fprintln(out, "No billing details set. The balance cannot be topped up until they are.")
 					_, _ = fmt.Fprintln(out, "Set them with: heroctl billing set --help")
 					return nil
 				}
@@ -55,7 +55,7 @@ func billingSetCmd(deps *Deps) *cobra.Command {
 		Use:   "set",
 		Short: "Create or replace the billing details",
 		Long: "Create or replace the billing details used on invoices.\n\n" +
-			"Every credit purchase is invoiced, and the VAT depends on the country\n" +
+			"Every top-up is invoiced, and the VAT depends on the country\n" +
 			"and on whether the buyer is a business. A business in another EU country\n" +
 			"that supplies a VAT number is invoiced at 0% under reverse charge.",
 		Example: "  heroctl billing set --type business --name 'Acme GmbH' \\\n" +

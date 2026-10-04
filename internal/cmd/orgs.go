@@ -9,7 +9,7 @@ import (
 func orgsCmd(deps *Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "orgs",
-		Short: "Show org info and credit balance",
+		Short: "Show org info and prepaid balance",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
@@ -18,14 +18,23 @@ func orgsCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("get org: %w", err)
 			}
 
-			credits, err := deps.Client.GetCredits(ctx, org.ID)
+			balance, err := deps.Client.GetBalance(ctx, org.ID)
 			if err != nil {
-				return fmt.Errorf("get credits: %w", err)
+				return fmt.Errorf("get balance: %w", err)
 			}
 
 			fmt.Printf("Name:     %s\n", org.Name)
 			fmt.Printf("VM cap:   %d\n", org.VmCap)
-			fmt.Printf("Credits:  %s\n", formatCredits(credits))
+			if balance.SpendableMicroEUR == nil {
+				fmt.Printf("Balance:  %s EUR\n", formatEuro(balance.MicroEUR))
+			} else {
+				fmt.Printf("Billing:  %s\n", balance.BillingMode)
+				fmt.Printf("Paid:     %s EUR\n", formatEuro(balance.MicroEUR))
+				fmt.Printf("Promo:    %s EUR\n", formatEuro(balance.PromotionalMicroEUR))
+				if balance.BillingMode != "internal" {
+					fmt.Printf("Usable:   %s EUR\n", formatEuro(*balance.SpendableMicroEUR))
+				}
+			}
 			return nil
 		},
 	}
