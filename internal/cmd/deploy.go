@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,6 +17,39 @@ import (
 )
 
 var lookPathFunc = exec.LookPath
+
+// runEngine runs the container engine with args, feeding stdin when non-empty.
+// A variable so tests can record the calls instead of running docker.
+var runEngine = func(ctx context.Context, engine, stdin string, args ...string) error {
+	c := exec.CommandContext(ctx, engine, args...) // #nosec G204 G702 -- the container engine the user chose, arguments as argv, no shell
+	if stdin != "" {
+		c.Stdin = strings.NewReader(stdin)
+	}
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	return c.Run()
+}
+
+// buildLoginPush builds the image, then logs in, then pushes.
+//
+// The order matters: registry credentials from hero-api live five minutes.
+// Logging in before the build meant a slow, uncached build (seen at ~8 min on
+// a loaded CI host) pushed with an expired token and failed with
+// "authentication required" after everything else had succeeded.
+func buildLoginPush(ctx context.Context, engine, image string, login func() error) error {
+	fmt.Printf("Building %s...\n", image)
+	if err := runEngine(ctx, engine, "", "build", "--platform", "linux/amd64", "-t", image, "."); err != nil {
+		return fmt.Errorf("docker build: %w", err)
+	}
+	if err := login(); err != nil {
+		return err
+	}
+	fmt.Printf("Pushing %s...\n", image)
+	if err := runEngine(ctx, engine, "", "push", image); err != nil {
+		return fmt.Errorf("docker push: %w", err)
+	}
+	return nil
+}
 
 func detectContainerEngine() (string, error) {
 	if _, err := lookPathFunc("docker"); err == nil {
@@ -82,36 +116,20 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return err
 			}
 
-			// 4. Get registry credentials.
-			creds, err := deps.Client.RegistryCredentials(ctx)
-			if err != nil {
-				return fmt.Errorf("get registry credentials: %w", err)
-			}
-
 			// Detect container engine
 			engine, err := detectContainerEngine()
 			if err != nil {
 				return err
 			}
 
-			// 5. docker/podman login via stdin to avoid credentials appearing in process list.
 			// hero-api proxies /v2/, so push to the API host, not the backend registry.
 			serverURL := build.ServerURL
 			if envURL := os.Getenv("HERO_API_URL"); envURL != "" {
 				serverURL = envURL
 			}
 			registry := strings.TrimPrefix(strings.TrimPrefix(serverURL, "https://"), "http://")
-			fmt.Printf("Logging into registry %s with %s...\n", registry, engine)
-			loginCmd := exec.CommandContext(ctx, engine, "login", registry, // #nosec G204 G702 -- the container engine the user chose, arguments as argv, no shell
-				"--username", creds.Username, "--password-stdin")
-			loginCmd.Stdin = strings.NewReader(creds.Password)
-			loginCmd.Stdout = os.Stdout
-			loginCmd.Stderr = os.Stderr
-			if err := loginCmd.Run(); err != nil {
-				return fmt.Errorf("docker login: %w", err)
-			}
 
-			// 6. Determine the image tag: short git SHA if available, otherwise timestamp.
+			// 4. Determine the image tag: short git SHA if available, otherwise timestamp.
 			var imageTag string
 			if gitOut, err := exec.CommandContext(ctx, "git", "rev-parse", "--short", "HEAD").Output(); err == nil {
 				imageTag = strings.TrimSpace(string(gitOut))
@@ -119,26 +137,26 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				imageTag = fmt.Sprintf("%d", time.Now().Unix())
 			}
 
-			// 7. Build image: {registry}/{orgName}/{projectName}:{imageTag}
+			// 5-7. Build, log in, push: {registry}/{orgName}/{projectName}:{imageTag}
 			image := fmt.Sprintf("%s/%s/%s:%s", registry, org.Name, project.Name, imageTag)
-			fmt.Printf("Building %s...\n", image)
-			buildCmd := exec.CommandContext(ctx, engine, "build", "--platform", "linux/amd64", "-t", image, ".") // #nosec G204 G702 -- the container engine the user chose, arguments as argv, no shell
-			buildCmd.Stdout = os.Stdout
-			buildCmd.Stderr = os.Stderr
-			if err := buildCmd.Run(); err != nil {
-				return fmt.Errorf("docker build: %w", err)
+			login := func() error {
+				creds, err := deps.Client.RegistryCredentials(ctx)
+				if err != nil {
+					return fmt.Errorf("get registry credentials: %w", err)
+				}
+				fmt.Printf("Logging into registry %s with %s...\n", registry, engine)
+				// Password via stdin so it never appears in the process list.
+				if err := runEngine(ctx, engine, creds.Password, "login", registry,
+					"--username", creds.Username, "--password-stdin"); err != nil {
+					return fmt.Errorf("docker login: %w", err)
+				}
+				return nil
+			}
+			if err := buildLoginPush(ctx, engine, image, login); err != nil {
+				return err
 			}
 
-			// 8. Push image.
-			fmt.Printf("Pushing %s...\n", image)
-			pushCmd := exec.CommandContext(ctx, engine, "push", image) // #nosec G204 G702 -- the container engine the user chose, arguments as argv, no shell
-			pushCmd.Stdout = os.Stdout
-			pushCmd.Stderr = os.Stderr
-			if err := pushCmd.Run(); err != nil {
-				return fmt.Errorf("docker push: %w", err)
-			}
-
-			// 9. Resolve volume names → IDs.
+			// 8. Resolve volume names → IDs.
 			var volumeAttachments []client.VolumeAttachment
 			if len(heroCfg.Volumes) > 0 {
 				allVolumes, err := deps.Client.ListVolumes(ctx, project.ID)
@@ -165,7 +183,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				}
 			}
 
-			// 10. Confirm before deploying with volumes: the server must stop the
+			// 9. Confirm before deploying with volumes: the server must stop the
 			// running allocation first, causing brief downtime.
 			if len(volumeAttachments) > 0 && !yes {
 				fmt.Println("Warning: this app has volumes attached.")
@@ -179,7 +197,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				}
 			}
 
-			// 11. Create deployment.
+			// 10. Create deployment.
 			scope := "public"
 			if heroCfg.Deploy.Private {
 				scope = "internal"
