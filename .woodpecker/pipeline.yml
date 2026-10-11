@@ -11,11 +11,16 @@ steps:
       - golangci-lint run --verbose --timeout 10m
 
   security:
-    image: securego/gosec:2.24.6
+    # securego/gosec on Docker Hub stopped at 2.24.6, built with Go 1.26: it
+    # could not load the Go 1.27 standard library ("package io without
+    # types"). Built here with the toolchain go.mod selects, so gosec always
+    # understands the Go this repo is on.
+    image: golang:1.27-alpine
     environment:
       GOTOOLCHAIN: auto
     commands:
       - apk add --no-cache git
+      - GOTOOLCHAIN=$$(go env GOVERSION) go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0
       - gosec ./...
 
   test:
