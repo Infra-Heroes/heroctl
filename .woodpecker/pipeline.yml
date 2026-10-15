@@ -1,5 +1,14 @@
 when:
-  - event: [push, pull_request, tag, manual]
+  # Push pipelines only for main. A branch with a PR already gets the
+  # pull_request pipeline; a second pipeline per push doubled the queue,
+  # and Renovate PRs waited so long that the clone token expired
+  # ("could not read Username").
+  - event: pull_request
+    evaluate: 'not (CI_FORGE_URL contains "codeberg.org")'
+  - event: push
+    branch: main
+    evaluate: 'not (CI_FORGE_URL contains "codeberg.org")'
+  - event: [tag, manual]
     evaluate: 'not (CI_FORGE_URL contains "codeberg.org")'
 
 steps:
