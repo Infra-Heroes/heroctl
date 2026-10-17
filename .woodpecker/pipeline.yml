@@ -3,6 +3,11 @@ when:
   # pull_request pipeline; a second pipeline per push doubled the queue,
   # and Renovate PRs waited so long that the clone token expired
   # ("could not read Username").
+  #
+  # The CI_FORGE_URL guard stays even though there is no Codeberg pipeline
+  # any more: Woodpecker reads every file under .woodpecker/, so if a
+  # Codeberg-backed instance is ever pointed at this repo again it would pick
+  # this file up and publish everything twice.
   - event: pull_request
     evaluate: 'not (CI_FORGE_URL contains "codeberg.org")'
   - event: push
@@ -100,10 +105,59 @@ steps:
     settings:
       registry: git.infra-heroes.de
       repo: git.infra-heroes.de/infraheroes/heroctl
-      username: 
+      username:
         from_secret: gitea_user
       password:
         from_secret: gitea_token
+      platforms: linux/amd64,linux/arm64
+      tags:
+        - ${CI_COMMIT_TAG:-latest}
+      build_args:
+        - SERVER_URL=https://api.infra-heroes.de
+        - AUTH_DOMAIN=auth.infra-heroes.de
+      build_args_from_env:
+        - CLIENT_ID=client_id
+
+  # Codeberg is no longer a CI host, only a publishing target: Forgejo mirrors
+  # every commit and tag there, and these two steps put the release artefacts
+  # and the image next to them. Both run here, on ci.infra-heroes.de, and were
+  # previously in .woodpecker/codeberg.yml on ci.codeberg.org.
+  #
+  # A release can only attach to a tag that already exists on Codeberg. The
+  # mirror is sync_on_commit and lint, gosec, test and build all run before
+  # this, so the tag has long since arrived by the time the step starts.
+  release-codeberg:
+    image: woodpeckerci/plugin-gitea-release
+    when:
+      event: tag
+      ref: refs/tags/v*
+    settings:
+      api_key:
+        from_secret: codeberg_token
+      base_url: https://codeberg.org
+      files:
+        - dist/*
+      title: ${CI_COMMIT_TAG}
+      generate_release_notes: true
+
+  docker-codeberg:
+    image: woodpeckerci/plugin-docker-buildx:6.1.2
+    privileged: true
+    when:
+      - event: tag
+        ref: refs/tags/v*
+      - event: push
+        branch: main
+    settings:
+      registry: codeberg.org
+      repo: codeberg.org/infraheroes/heroctl
+      # A Codeberg account name, not a secret; only the token is one. There is
+      # no codeberg_user secret on this Woodpecker instance, and from_secret on
+      # a missing secret resolves to an empty string, which would fail the
+      # registry login with a confusing error instead of a clear one.
+      username: dominikludwig1995
+      password:
+        from_secret: codeberg_token
       platforms: linux/amd64,linux/arm64
       tags:
         - ${CI_COMMIT_TAG:-latest}
