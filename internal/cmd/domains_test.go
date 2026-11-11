@@ -83,8 +83,8 @@ func TestDomainsCommands(t *testing.T) {
 	var paths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.Method+" "+r.URL.RequestURI())
-		switch {
-		case r.URL.Path == "/api/v1/projects":
+		switch r.URL.Path {
+		case "/api/v1/projects":
 			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": "proj-1", "name": "app"}})
 		default:
 			_ = json.NewEncoder(w).Encode(map[string]any{"domain": "shop.example.com", "record_type": "TXT",
