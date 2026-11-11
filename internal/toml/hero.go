@@ -34,6 +34,10 @@ type AppConfig struct {
 	// Must be lowercase and contain only letters, digits, and hyphens.
 	Name          string   `toml:"name"`
 	CustomDomains []string `toml:"custom_domains"`
+	// VerifyDomains asks the platform to check that the organisation controls each
+	// custom domain, by a TXT record, before deploying. Off unless set: without it
+	// custom domains are routed as they always were.
+	VerifyDomains bool `toml:"verify_domains"`
 }
 
 // DeployConfig holds deployment resource configuration.

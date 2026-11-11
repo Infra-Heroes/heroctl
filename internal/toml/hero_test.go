@@ -132,3 +132,21 @@ max_replicas = 2
 		t.Errorf("expected MaxReplicas to be adjusted to MinReplicas (4), got %d", cfgRange.Deploy.MaxReplicas)
 	}
 }
+
+func TestParse_VerifyDomainsIsOffUnlessSet(t *testing.T) {
+	off, err := Parse(strings.NewReader("[app]\nname = \"a\"\ncustom_domains = [\"shop.example.com\"]\n[deploy]\nport = 80\nhealth_path = \"/\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off.App.VerifyDomains {
+		t.Error("verify_domains must be off unless the file says so: existing hero.toml files keep working")
+	}
+
+	on, err := Parse(strings.NewReader("[app]\nname = \"a\"\ncustom_domains = [\"shop.example.com\"]\nverify_domains = true\n[deploy]\nport = 80\nhealth_path = \"/\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !on.App.VerifyDomains {
+		t.Error("verify_domains = true was not read")
+	}
+}
