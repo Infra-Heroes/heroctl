@@ -130,6 +130,33 @@ Host(`my-app.heroapp.run`) || Host(`www.my-app.heroapp.run`) || Host(`app.exampl
 
 The CNAME must resolve before you deploy. Traefik adds the `Host()` rule immediately on deploy but there is no retry — if DNS does not resolve to the platform IP at that point, HTTP health checks targeting the custom domain will fail and the deployment will be marked unhealthy.
 
+#### Optional: prove you control the domain (TXT record)
+
+By default a custom domain is routed without a proof of ownership, as before. To
+have the platform check that your organisation controls it, set the option in
+`hero.toml`:
+
+```toml
+[app]
+name = "my-app"
+custom_domains = ["shop.example.com"]
+verify_domains = true
+```
+
+A deploy then needs a TXT record for every custom domain:
+
+```bash
+heroctl domains challenge shop.example.com --project my-project   # shows the record
+# add it at your DNS provider:  _hero-challenge.shop.example.com  TXT  hero-verification=<token>
+heroctl domains verify shop.example.com --project my-project      # checks it now
+heroctl deploy --project my-project
+```
+
+If a record is missing the deploy stops and lists the records still to add. Apex and
+`www` are separate domains with their own record. Once verified, a domain stays
+verified for your organisation. Needs a hero-api with domain verification; without
+`verify_domains` nothing changes.
+
 ### 4. Volumes (Ceph Block Storage)
 
 Attach high-availability persistent storage volumes to your MicroVM.

@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -223,6 +224,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				Volumes:         volumeAttachments,
 				MinReplicas:     heroCfg.Deploy.MinReplicas,
 				MaxReplicas:     heroCfg.Deploy.MaxReplicas,
+				VerifyDomains:   heroCfg.App.VerifyDomains,
 			})
 			if err != nil {
 				return deploymentError(err, projectName)
@@ -270,6 +272,10 @@ The project must already exist (create with: heroctl projects create <name>).`,
 // the way out. The API's exact wording is not pinned down here, so these match
 // on substrings, the same heuristic the vm-cap case has always used.
 func deploymentError(err error, projectName string) error {
+	var domainErr *client.DomainVerificationError
+	if errors.As(err, &domainErr) {
+		return domainErr // names the TXT records to add; wrapping it would bury them
+	}
 	msg := strings.ToLower(err.Error())
 	switch {
 	case strings.Contains(msg, "vm cap"):

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Infra-Heroes/heroctl/internal/auth"
@@ -216,6 +217,9 @@ type CreateDeploymentRequest struct {
 	Volumes         []VolumeAttachment `json:"volumes,omitempty"`
 	MinReplicas     int                `json:"min_replicas"`
 	MaxReplicas     int                `json:"max_replicas"`
+	// VerifyDomains asks hero-api to check the TXT records of the custom domains
+	// first. Omitted when false, so the request is the one older servers expect.
+	VerifyDomains bool `json:"verify_domains,omitempty"`
 }
 
 // DeploymentStatus is the response from GET /api/v1/projects/{id}/deployments/{id}/status.
@@ -850,9 +854,13 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 
 	if resp.StatusCode >= 400 {
 		var errResp struct {
-			Error string `json:"error"`
+			Error              string            `json:"error"`
+			DomainVerification []DomainChallenge `json:"domain_verification"`
 		}
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
+		if len(errResp.DomainVerification) > 0 {
+			return &DomainVerificationError{Message: errResp.Error, Pending: errResp.DomainVerification}
+		}
 		if errResp.Error != "" {
 			return fmt.Errorf("%s", errResp.Error)
 		}
@@ -923,4 +931,48 @@ func (c *Client) ensureToken(ctx context.Context) error {
 	}
 	c.token = newTok
 	return nil
+}
+
+// ── Custom domain verification ───────────────────────────────────────────────
+
+// DomainChallenge is the TXT record that proves control of a domain, and whether
+// it has been seen.
+type DomainChallenge struct {
+	Domain      string `json:"domain"`
+	RecordType  string `json:"record_type"`
+	RecordName  string `json:"record_name"`
+	RecordValue string `json:"record_value"`
+	Verified    bool   `json:"verified"`
+}
+
+// DomainVerificationError is a deploy refused because custom domains are not
+// verified yet. It carries the records to add, so the message can name them.
+type DomainVerificationError struct {
+	Message string
+	Pending []DomainChallenge
+}
+
+func (e *DomainVerificationError) Error() string {
+	var b strings.Builder
+	b.WriteString(e.Message)
+	b.WriteString("\n")
+	for _, c := range e.Pending {
+		fmt.Fprintf(&b, "\n  %s  %s  %s", c.RecordType, c.RecordName, c.RecordValue)
+	}
+	b.WriteString("\n\nAdd the record(s) at your DNS provider, check with: heroctl domains verify <domain> --project <project>, then deploy again.")
+	return b.String()
+}
+
+// DomainChallenge returns the record to publish for a domain.
+func (c *Client) DomainChallenge(ctx context.Context, projectID, domain string) (*DomainChallenge, error) {
+	var out DomainChallenge
+	path := "/api/v1/projects/" + projectID + "/domains/challenge?domain=" + url.QueryEscape(domain)
+	return &out, c.do(ctx, http.MethodGet, path, nil, &out)
+}
+
+// VerifyDomain looks the record up now and returns the result.
+func (c *Client) VerifyDomain(ctx context.Context, projectID, domain string) (*DomainChallenge, error) {
+	var out DomainChallenge
+	path := "/api/v1/projects/" + projectID + "/domains/verify"
+	return &out, c.do(ctx, http.MethodPost, path, map[string]string{"domain": domain}, &out)
 }
