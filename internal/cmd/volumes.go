@@ -22,6 +22,7 @@ func volumesCmd(deps *Deps) *cobra.Command {
 		volumesCreateCmd(deps),
 		volumesListCmd(deps),
 		volumesDestroyCmd(deps),
+		volumesSnapshotsCmd(deps),
 	)
 
 	return cmd

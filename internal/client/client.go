@@ -579,6 +579,93 @@ func (c *Client) DeleteVolume(ctx context.Context, projectID, volumeID string) e
 	return c.do(ctx, http.MethodDelete, "/api/v1/projects/"+projectID+"/volumes/"+volumeID, nil, nil)
 }
 
+// ── Volume snapshots ──────────────────────────────────────────────────────────
+
+// Snapshot is one recovery point of a volume.
+type Snapshot struct {
+	Name      string `json:"name"`
+	SizeBytes int64  `json:"size_bytes"`
+}
+
+// SnapshotPolicy is a volume's automatic-snapshot schedule. LastRunAt,
+// LastStatus and LastError describe the most recent automatic run.
+type SnapshotPolicy struct {
+	Configured bool    `json:"configured"`
+	Enabled    bool    `json:"enabled"`
+	HourUTC    int     `json:"hour_utc"`
+	Keep       int     `json:"keep"`
+	LastRunAt  *string `json:"last_run_at,omitempty"`
+	LastStatus *string `json:"last_status,omitempty"`
+	LastError  *string `json:"last_error,omitempty"`
+}
+
+// SnapshotPolicyRequest is the body for PUT .../snapshot-policy. Nil fields are
+// left to hero-api's defaults.
+type SnapshotPolicyRequest struct {
+	Enabled *bool `json:"enabled,omitempty"`
+	HourUTC *int  `json:"hour_utc,omitempty"`
+	Keep    *int  `json:"keep,omitempty"`
+}
+
+func snapshotsPath(projectID, volumeID string) string {
+	return "/api/v1/projects/" + projectID + "/volumes/" + volumeID + "/snapshots"
+}
+
+// ListSnapshots returns a volume's recovery points.
+func (c *Client) ListSnapshots(ctx context.Context, projectID, volumeID string) ([]Snapshot, error) {
+	var out struct {
+		Snapshots []Snapshot `json:"snapshots"`
+	}
+	if err := c.do(ctx, http.MethodGet, snapshotsPath(projectID, volumeID), nil, &out); err != nil {
+		return nil, err
+	}
+	if out.Snapshots == nil {
+		out.Snapshots = []Snapshot{}
+	}
+	return out.Snapshots, nil
+}
+
+// CreateSnapshot takes a recovery point and returns the name it was given.
+// An empty name lets hero-api choose a sortable one.
+func (c *Client) CreateSnapshot(ctx context.Context, projectID, volumeID, name string) (string, error) {
+	body := map[string]string{}
+	if name != "" {
+		body["name"] = name
+	}
+	var out struct {
+		Name string `json:"name"`
+	}
+	if err := c.do(ctx, http.MethodPost, snapshotsPath(projectID, volumeID), body, &out); err != nil {
+		return "", err
+	}
+	return out.Name, nil
+}
+
+// DeleteSnapshot removes a recovery point.
+func (c *Client) DeleteSnapshot(ctx context.Context, projectID, volumeID, name string) error {
+	return c.do(ctx, http.MethodDelete, snapshotsPath(projectID, volumeID)+"/"+name, nil, nil)
+}
+
+// RestoreSnapshot rolls a volume back to a recovery point. hero-api refuses it
+// while the volume is attached to a deployment.
+func (c *Client) RestoreSnapshot(ctx context.Context, projectID, volumeID, name string) error {
+	return c.do(ctx, http.MethodPost, snapshotsPath(projectID, volumeID)+"/"+name+"/restore", nil, nil)
+}
+
+// GetSnapshotPolicy reads the automatic-snapshot schedule (defaults when unset).
+func (c *Client) GetSnapshotPolicy(ctx context.Context, projectID, volumeID string) (*SnapshotPolicy, error) {
+	var out SnapshotPolicy
+	path := "/api/v1/projects/" + projectID + "/volumes/" + volumeID + "/snapshot-policy"
+	return &out, c.do(ctx, http.MethodGet, path, nil, &out)
+}
+
+// PutSnapshotPolicy creates or changes the automatic-snapshot schedule.
+func (c *Client) PutSnapshotPolicy(ctx context.Context, projectID, volumeID string, req SnapshotPolicyRequest) (*SnapshotPolicy, error) {
+	var out SnapshotPolicy
+	path := "/api/v1/projects/" + projectID + "/volumes/" + volumeID + "/snapshot-policy"
+	return &out, c.do(ctx, http.MethodPut, path, req, &out)
+}
+
 // ── Members ───────────────────────────────────────────────────────────────────
 
 // OrgMember is a member of an org as returned by the API.

@@ -146,6 +146,20 @@ Attach high-availability persistent storage volumes to your MicroVM.
    mount = "/var/lib/db-data"
    ```
 
+3. **Recovery points (snapshots):** Take, list, remove and restore point-in-time copies, or let the platform take one every day:
+   ```bash
+   heroctl volumes snapshots create my-volume-name --project my-project      # a manual one, nothing stops
+   heroctl volumes snapshots list my-volume-name --project my-project
+   heroctl volumes snapshots restore my-volume-name <snapshot> --project my-project   # deployment must be stopped
+   heroctl volumes snapshots delete my-volume-name <snapshot> --project my-project
+
+   # Automatic: every day at 03:00 UTC, keep the newest 10 (1-14)
+   heroctl volumes snapshots schedule my-volume-name --project my-project --at 3 --keep 10
+   heroctl volumes snapshots schedule my-volume-name --project my-project          # show it
+   heroctl volumes snapshots schedule my-volume-name --project my-project --off
+   ```
+   Snapshots are crash-consistent. Restoring discards everything written since and is refused while the volume is attached. The schedule only ever removes automatic snapshots (`auto-<UTC time>`); the ones you took yourself stay until you remove them.
+
 ### 5. Secrets
 
 Sensitive configurations (passwords, private keys, database connections) are encrypted at rest using HashiCorp Vault.
