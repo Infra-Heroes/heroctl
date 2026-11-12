@@ -210,6 +210,6 @@ func deploymentsCmd(deps *Deps) *cobra.Command {
 	update.Flags().IntVar(&updateCPU, "cpu", 0, "Number of vCPUs")
 	update.Flags().IntVar(&updateMemory, "memory", 0, "Memory in MB")
 
-	cmd.AddCommand(list, get, stop, del, start, restart, update)
+	cmd.AddCommand(list, get, stop, del, start, restart, update, deploymentsScheduleCmd(deps))
 	return cmd
 }
