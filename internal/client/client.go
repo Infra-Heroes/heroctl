@@ -976,3 +976,47 @@ func (c *Client) VerifyDomain(ctx context.Context, projectID, domain string) (*D
 	path := "/api/v1/projects/" + projectID + "/domains/verify"
 	return &out, c.do(ctx, http.MethodPost, path, map[string]string{"domain": domain}, &out)
 }
+
+// ── Deployment schedules ─────────────────────────────────────────────────────
+
+// DeploymentSchedule is a deployment's timetable: when it is stopped and started.
+// Both are cron expressions in Timezone; either may be empty.
+type DeploymentSchedule struct {
+	Enabled     bool    `json:"enabled"`
+	StartCron   string  `json:"start_cron"`
+	StopCron    string  `json:"stop_cron"`
+	Timezone    string  `json:"timezone"`
+	NextStartAt *string `json:"next_start_at,omitempty"`
+	NextStopAt  *string `json:"next_stop_at,omitempty"`
+}
+
+// DeploymentScheduleRequest is the body for PUT .../schedule. It replaces the whole
+// timetable, so a caller that changes one side sends the other as it was.
+type DeploymentScheduleRequest struct {
+	StartCron string `json:"start_cron"`
+	StopCron  string `json:"stop_cron"`
+	Timezone  string `json:"timezone,omitempty"`
+	Enabled   *bool  `json:"enabled,omitempty"`
+}
+
+func schedulePath(projectID, app string) string {
+	return "/api/v1/projects/" + projectID + "/deployments/" + app + "/schedule"
+}
+
+// GetDeploymentSchedule reads a deployment's timetable; one that has none comes
+// back empty and disabled.
+func (c *Client) GetDeploymentSchedule(ctx context.Context, projectID, app string) (*DeploymentSchedule, error) {
+	var out DeploymentSchedule
+	return &out, c.do(ctx, http.MethodGet, schedulePath(projectID, app), nil, &out)
+}
+
+// PutDeploymentSchedule sets a deployment's timetable.
+func (c *Client) PutDeploymentSchedule(ctx context.Context, projectID, app string, req DeploymentScheduleRequest) (*DeploymentSchedule, error) {
+	var out DeploymentSchedule
+	return &out, c.do(ctx, http.MethodPut, schedulePath(projectID, app), req, &out)
+}
+
+// DeleteDeploymentSchedule removes a deployment's timetable.
+func (c *Client) DeleteDeploymentSchedule(ctx context.Context, projectID, app string) error {
+	return c.do(ctx, http.MethodDelete, schedulePath(projectID, app), nil, nil)
+}

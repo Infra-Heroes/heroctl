@@ -26,7 +26,7 @@ Manage your MicroVM deployments, volumes, secrets, and configurations effortless
 
 ## 📦 Installation
 
-Get started with `heroctl` in seconds using Homebrew:
+Install the latest release with the install script:
 
 ```bash
 curl -sL https://infra-heroes.de/install.sh | bash
@@ -74,11 +74,41 @@ min_replicas = 2
 max_replicas = 5
 ```
 
+**Autoscaling.** With `max_replicas` above `min_replicas` the platform watches the average CPU of the replicas every 30 seconds: above 80 % it adds one, below 20 % it removes one, always within your minimum and maximum. A new deploy, resize or restart starts with the count the autoscaler has reached, not with the minimum.
+
 **Vertical Scaling** (Executed via CLI)
-To adjust CPU cores and Memory limits in-place for an active deployment, run:
+To adjust CPU cores and Memory limits of an active deployment, run:
 ```bash
 heroctl deployments update my-app --cpu 2 --memory 1024 --project my-project
 ```
+A deployment with several replicas is updated one replica after another, without downtime.
+
+### 1a. Scale to zero
+
+An app that is not used does not need to run. Set `scale_to_zero = true` and the platform stops it after 5 minutes without requests; the next request starts it again in about two seconds and is answered normally.
+
+```toml
+[deploy]
+scale_to_zero = true
+```
+
+Scale to zero needs a single replica and no volume. Only such apps are woken by a request: an app you stopped yourself (`heroctl deployments stop`) stays stopped until you start it.
+
+### 1b. Scheduled stop and start
+
+Stop an app at night and on weekends, start it again in the morning:
+
+```bash
+heroctl deployments schedule my-app --project my-project \
+  --stop "0 20 * * 1-5" --start "0 7 * * 1-5" --timezone Europe/Berlin
+
+heroctl deployments schedule my-app --project my-project            # show it, with the next times
+heroctl deployments schedule my-app --project my-project --off      # pause, keep the times
+heroctl deployments schedule my-app --project my-project --on       # resume
+heroctl deployments schedule my-app --project my-project --remove   # delete it
+```
+
+Times are cron expressions (minute hour day-of-month month day-of-week). Changing one side keeps the other.
 
 ### 2. Getting Logs
 
@@ -192,7 +222,7 @@ Attach high-availability persistent storage volumes to your MicroVM.
 Sensitive configurations (passwords, private keys, database connections) are encrypted at rest using HashiCorp Vault.
 
 ```bash
-# Set a secret (value is read securely from stdin to avoid leakages in bash history)
+# Set a secret (the value is asked for at a hidden prompt, so it never lands in your shell history)
 heroctl secrets set DB_PASSWORD --project my-project
 
 # List secret keys (values are never exposed)
