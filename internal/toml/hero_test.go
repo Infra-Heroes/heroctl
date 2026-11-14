@@ -150,3 +150,38 @@ func TestParse_VerifyDomainsIsOffUnlessSet(t *testing.T) {
 		t.Error("verify_domains = true was not read")
 	}
 }
+
+func TestParse_WarnsAboutKeysThatAreIgnored(t *testing.T) {
+	cfg, err := Parse(strings.NewReader(`
+[app]
+name = "x"
+port = 80
+bogus = 1
+
+[deploy]
+health_path = "/"
+cpuu = 2
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Deploy.Port != 8080 {
+		t.Fatalf("port under [app] must not take effect, got %d", cfg.Deploy.Port)
+	}
+	got := strings.Join(cfg.Warnings, "\n")
+	for _, want := range []string{`"app.port" is ignored: port belongs under [deploy]`, `"app.bogus"`, `"deploy.cpuu"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("warnings %q miss %q", got, want)
+		}
+	}
+}
+
+func TestParse_NoWarningsForAValidFile(t *testing.T) {
+	cfg, err := Parse(strings.NewReader("[app]\nname = \"x\"\n[deploy]\nport = 80\nhealth_path = \"/\"\n[env]\nA = \"b\"\n[[volumes]]\nname = \"v\"\nmount = \"/d\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Warnings) != 0 {
+		t.Errorf("unexpected warnings: %v", cfg.Warnings)
+	}
+}
