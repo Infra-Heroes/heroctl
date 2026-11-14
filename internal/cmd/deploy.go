@@ -64,6 +64,9 @@ func detectContainerEngine() (string, error) {
 
 const deployTimeout = 5 * time.Minute
 
+// deployPollInterval is how often a deploy asks whether the VM is healthy yet.
+const deployPollInterval = time.Second
+
 func deployCmd(deps *Deps) *cobra.Command {
 	var projectName string
 	var yes bool
@@ -233,8 +236,11 @@ The project must already exist (create with: heroctl projects create <name>).`,
 			fmt.Printf("Deployment %q submitted. Waiting for VM to start and become healthy", heroCfg.App.Name)
 
 			deadline := time.Now().Add(deployTimeout)
-			for time.Now().Before(deadline) {
-				time.Sleep(5 * time.Second)
+			for polls := 0; time.Now().Before(deadline); polls++ {
+				// A microVM is usually healthy within a few seconds. Asking only every
+				// five, and not before the first five have passed, added up to five
+				// seconds to every deploy for nothing; the status call is cheap.
+				time.Sleep(deployPollInterval)
 				status, err := deps.Client.GetDeploymentStatus(ctx, project.ID, heroCfg.App.Name)
 				if err != nil {
 					// Transient error, keep trying.
@@ -254,7 +260,9 @@ The project must already exist (create with: heroctl projects create <name>).`,
 						return nil
 					}
 				}
-				fmt.Print(".")
+				if polls%5 == 4 {
+					fmt.Print(".")
+				}
 			}
 			fmt.Println()
 			return fmt.Errorf("timed out after %s waiting for deployment to become healthy", deployTimeout)
