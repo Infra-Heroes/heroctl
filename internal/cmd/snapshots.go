@@ -180,11 +180,9 @@ func snapshotsRestoreCmd(deps *Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// Refused here as well as by the server: failing before the
-			// question is kinder than asking one that cannot be acted on.
-			if vol.Status == "attached" {
-				return fmt.Errorf("volume %q is attached to a deployment M-bM-^@M-^T stop the deployment first: rolling back under a mounted filesystem corrupts it", vol.Name)
-			}
+			// Not refused here on the volume's status: a stopped deployment keeps its
+			// volume reserved ("attached"), and the server alone knows whether
+			// anything still runs or holds the disk. Its answer names the reason.
 			if !force && !confirm(os.Stdin, fmt.Sprintf(
 				"Roll volume %q back to %q? Everything written since is discarded and there is no undo.", vol.Name, args[1])) {
 				fmt.Println("Aborted.")

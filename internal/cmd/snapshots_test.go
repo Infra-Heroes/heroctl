@@ -103,19 +103,25 @@ func TestSnapshotsList(t *testing.T) {
 	}
 }
 
-func TestSnapshotsRestore_RefusedWhileAttachedBeforeAnyQuestion(t *testing.T) {
+// A stopped deployment keeps its volume "attached", so the volume's status says
+// nothing about whether a restore is safe. The request goes to the server, which
+// knows, and the CLI does not stand in its way.
+func TestSnapshotsRestore_AttachedVolumeIsLeftToTheServer(t *testing.T) {
 	s := &snapshotServer{status: "attached"}
 	srv := newSnapshotServer(t, s)
 	defer srv.Close()
 
-	err := run(t, srv, "restore", "data", "auto-20261111-020000", "--project", "app", "--force")
-	if err == nil || !strings.Contains(err.Error(), "stop the deployment first") {
-		t.Fatalf("err = %v, want the stop-first refusal", err)
+	if err := run(t, srv, "restore", "data", "auto-20261111-020000", "--project", "app", "--force"); err != nil {
+		t.Fatalf("an attached volume must still be sent to the server: %v", err)
 	}
+	sent := false
 	for _, c := range s.calls {
 		if strings.HasSuffix(c, "/restore") {
-			t.Error("a restore must not be sent for an attached volume")
+			sent = true
 		}
+	}
+	if !sent {
+		t.Error("the restore was not sent")
 	}
 }
 
