@@ -1020,3 +1020,50 @@ func (c *Client) PutDeploymentSchedule(ctx context.Context, projectID, app strin
 func (c *Client) DeleteDeploymentSchedule(ctx context.Context, projectID, app string) error {
 	return c.do(ctx, http.MethodDelete, schedulePath(projectID, app), nil, nil)
 }
+
+// DeploymentRevision is one entry of a deployment's history: what a deploy put
+// into service.
+type DeploymentRevision struct {
+	ID        string `json:"id"`
+	Image     string `json:"image"`
+	CPU       int32  `json:"cpu"`
+	MemoryMB  int32  `json:"memory_mb"`
+	Replicas  int32  `json:"replicas"`
+	Current   bool   `json:"current"`
+	CreatedBy string `json:"created_by"`
+	CreatedAt string `json:"created_at"`
+}
+
+// DeploymentRevisions is one page of a deployment's history, newest first.
+type DeploymentRevisions struct {
+	Revisions []DeploymentRevision `json:"revisions"`
+	Total     int64                `json:"total"`
+}
+
+// RollbackResult is what the server answers to a rollback.
+type RollbackResult struct {
+	AppName  string `json:"app_name"`
+	Image    string `json:"image"`
+	Status   string `json:"status"`
+	RolledTo string `json:"rolled_to"`
+}
+
+func revisionsPath(projectID, app string) string {
+	return "/api/v1/projects/" + projectID + "/deployments/" + app + "/revisions"
+}
+
+// ListDeploymentRevisions reads up to limit revisions of a deployment, newest first.
+func (c *Client) ListDeploymentRevisions(ctx context.Context, projectID, app string, limit int) (*DeploymentRevisions, error) {
+	var out DeploymentRevisions
+	path := revisionsPath(projectID, app)
+	if limit > 0 {
+		path += "?limit=" + strconv.Itoa(limit)
+	}
+	return &out, c.do(ctx, http.MethodGet, path, nil, &out)
+}
+
+// RollbackDeployment puts a revision back into service.
+func (c *Client) RollbackDeployment(ctx context.Context, projectID, app, revisionID string) (*RollbackResult, error) {
+	var out RollbackResult
+	return &out, c.do(ctx, http.MethodPost, revisionsPath(projectID, app)+"/"+revisionID+"/rollback", nil, &out)
+}
