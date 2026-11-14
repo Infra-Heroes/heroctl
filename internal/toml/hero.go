@@ -2,9 +2,11 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -18,6 +20,12 @@ type HeroConfig struct {
 	Env     map[string]string `toml:"env"`
 	Labels  map[string]string `toml:"labels"`
 	Volumes []VolumeConfig    `toml:"volumes"`
+
+	// Warnings lists keys that were set but are not known. They are not an error
+	// (an older heroctl must still read a newer file), but a key that is silently
+	// ignored, such as a port written under [app], leaves the app on its default
+	// and the deploy waiting for a health check that can never pass.
+	Warnings []string `toml:"-"`
 }
 
 // VolumeConfig declares a volume attachment for a deployment.
@@ -69,10 +77,15 @@ type DeployConfig struct {
 
 // Parse reads and validates a hero.toml from r.
 func Parse(r io.Reader) (*HeroConfig, error) {
+	raw, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read hero.toml: %w", err)
+	}
 	var cfg HeroConfig
-	if err := toml.NewDecoder(r).Decode(&cfg); err != nil {
+	if err := toml.Unmarshal(raw, &cfg); err != nil {
 		return nil, fmt.Errorf("parse hero.toml: %w", err)
 	}
+	cfg.Warnings = unknownKeys(raw)
 
 	if cfg.App.Name == "" {
 		return nil, fmt.Errorf("hero.toml: [app] name is required")
@@ -141,4 +154,39 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 	}
 
 	return &cfg, nil
+}
+
+// deployKeys are the keys that belong under [deploy]; written elsewhere they are
+// a common slip, and the warning can then say where they go.
+var deployKeys = map[string]bool{
+	"cpu": true, "memory_mb": true, "port": true, "health_path": true, "scale_to_zero": true,
+	"private": true, "health_check_type": true, "health_check_port": true,
+	"min_replicas": true, "max_replicas": true,
+}
+
+// unknownKeys reports the keys of raw that HeroConfig does not read.
+func unknownKeys(raw []byte) []string {
+	var probe HeroConfig
+	d := toml.NewDecoder(strings.NewReader(string(raw)))
+	d.DisallowUnknownFields()
+	var strict *toml.StrictMissingError
+	if err := d.Decode(&probe); !errors.As(err, &strict) {
+		return nil
+	}
+	var out []string
+	for _, e := range strict.Errors {
+		key := e.Key()
+		name := strings.Join(key, ".")
+		last := key[len(key)-1]
+		if len(key) == 2 && key[0] == "app" && deployKeys[last] {
+			out = append(out, fmt.Sprintf("%q is ignored: %s belongs under [deploy], not [app]", name, last))
+			continue
+		}
+		if len(key) == 1 && deployKeys[last] {
+			out = append(out, fmt.Sprintf("%q is ignored: %s belongs under [deploy]", name, last))
+			continue
+		}
+		out = append(out, fmt.Sprintf("%q is not a known hero.toml key and is ignored", name))
+	}
+	return out
 }

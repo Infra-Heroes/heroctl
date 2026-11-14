@@ -101,6 +101,9 @@ hero registry. hero.toml still decides the size, port, environment and volumes.
 			if err != nil {
 				return err
 			}
+			for _, w := range heroCfg.Warnings {
+				fmt.Fprintf(os.Stderr, "Warning: hero.toml: %s\n", w)
+			}
 			if err := validateAppName(heroCfg.App.Name); err != nil {
 				return fmt.Errorf("hero.toml: %w", err)
 			}
@@ -267,7 +270,7 @@ hero registry. hero.toml still decides the size, port, environment and volumes.
 				switch status.NomadStatus {
 				case "dead":
 					fmt.Println()
-					return fmt.Errorf("deployment failed: app crashed on startup; check logs with: heroctl deployments logs %s --project %s", heroCfg.App.Name, projectName)
+					return fmt.Errorf("deployment failed: app crashed on startup; check logs with: heroctl logs %s --project %s", heroCfg.App.Name, projectName)
 				case "running":
 					if status.Healthy {
 						fmt.Println(" ready!")
@@ -282,7 +285,10 @@ hero registry. hero.toml still decides the size, port, environment and volumes.
 				}
 			}
 			fmt.Println()
-			return fmt.Errorf("timed out after %s waiting for deployment to become healthy", deployTimeout)
+			return fmt.Errorf("timed out after %s waiting for deployment to become healthy. "+
+				"Usually the app listens on another port than %d ([deploy] port) or does not answer %s with a 2xx ([deploy] health_path). "+
+				"Look at the app's output with: heroctl logs %s --project %s",
+				deployTimeout, heroCfg.Deploy.Port, heroCfg.Deploy.HealthPath, heroCfg.App.Name, projectName)
 		},
 	}
 

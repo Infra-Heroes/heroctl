@@ -63,6 +63,16 @@ Deploying your application to the Infra-Heroes cloud is effortless.
    ```
    The image must be one the platform can pull without credentials: a public image, or one in the hero registry.
 
+   **From CI** (GitHub Actions): create a deploy token with `heroctl tokens create --name ci --scope deploy`, store it as the secret `HERO_TOKEN`, then:
+   ```yaml
+   - run: curl -fsSL https://infra-heroes.de/install.sh | bash
+   - run: ~/.local/bin/heroctl deploy --project my-project --yes --token "$HERO_TOKEN"
+     env:
+       HERO_TOKEN: ${{ secrets.HERO_TOKEN }}
+   ```
+   `heroctl logs`, `deployments rollback` and the other commands take `--token` as well.
+   Keys in `hero.toml` that heroctl does not know (for example `port` under `[app]` instead of `[deploy]`) are reported as warnings.
+
 ---
 
 ## 📖 Platform Features
@@ -217,7 +227,11 @@ Host(`my-app.heroapp.run`) || Host(`www.my-app.heroapp.run`) || Host(`app.exampl
 - On each renewal, the certificate is written to `/etc/traefik/certs/wildcard.{crt,key}` on the gateway node and backed up to Consul KV at `traefik/certs/{cert,key}` for recovery across gateway restarts.
 - Traefik loads the certificate from the local file and serves it for all `*.heroapp.run` traffic.
 
-> **Note:** Custom domains outside `*.heroapp.run` (e.g. `app.example.com`) require a valid TLS certificate that covers that domain. The platform currently does not auto-issue per-custom-domain certificates — ensure your DNS CNAME is in place before deploying so the routing resolves correctly. Per-custom-domain certificate issuance is on the roadmap.
+**Custom domains** (e.g. `app.example.com`) get their own Let's Encrypt certificate, issued by the gateway through the HTTP-01 challenge (resolver `letsencrypt-http`). For that to work:
+
+- Point the domain (CNAME or A record) at the platform **before** you deploy, and keep port 80 reachable: Let's Encrypt validates over plain HTTP.
+- The certificate is requested on the first HTTPS request to the domain and renewed automatically. The first request can take a few seconds or fail once while it is issued; a retry then succeeds.
+- A wildcard such as `*.example.com` is not supported; list each hostname in `custom_domains`.
 
 #### DNS propagation
 

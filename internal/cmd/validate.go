@@ -35,8 +35,12 @@ func validateCmd() *cobra.Command {
 				_ = f.Close()
 			}()
 
-			if _, err := toml.Parse(f); err != nil {
+			cfg, err := toml.Parse(f)
+			if err != nil {
 				return fmt.Errorf("validation failed for %s:\n%w", fileName, err)
+			}
+			for _, w := range cfg.Warnings {
+				fmt.Fprintf(os.Stderr, "Warning: %s: %s\n", fileName, w)
 			}
 
 			fmt.Printf("✅ %s is valid.\n", fileName)
