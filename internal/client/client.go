@@ -174,6 +174,10 @@ type Deployment struct {
 	MinReplicas  int32             `json:"min_replicas"`
 	MaxReplicas  int32             `json:"max_replicas"`
 	Replicas     int32             `json:"replicas"`
+	// Env is the environment as it was set: a "secret:KEY" stays a reference. A
+	// deployment that predates stored references comes back with "***" for every
+	// value, which is a mask and not something to write back.
+	Env map[string]string `json:"env,omitempty"`
 }
 
 // DeploymentCreated is the response from POST /api/v1/projects/{id}/deployments.
