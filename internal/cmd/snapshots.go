@@ -54,10 +54,11 @@ func volumesSnapshotsCmd(deps *Deps) *cobra.Command {
 		Short: "Recovery points of a volume: take, list, restore, remove, schedule",
 		Long: `Recovery points (snapshots) of a volume.
 
-Taking one does not stop anything; it is crash-consistent. Restoring one
-discards everything written since and needs the deployment stopped first.
-Automatic snapshots are named auto-<UTC time>; only those are ever pruned by
-the schedule's retention.`,
+A running app holds its volume exclusively, so taking or restoring one needs
+the deployment stopped first. A snapshot is crash-consistent. Restoring one
+discards everything written since. Automatic snapshots are named
+auto-<UTC time>; only those are ever pruned by the schedule's retention.
+Ones you take without a name are called manual-<UTC time>.`,
 	}
 	cmd.AddCommand(
 		snapshotsListCmd(deps),
@@ -110,7 +111,7 @@ func snapshotsCreateCmd(deps *Deps) *cobra.Command {
 	var projectName, name string
 	cmd := &cobra.Command{
 		Use:   "create <volume>",
-		Short: "Take a recovery point (the volume keeps running)",
+		Short: "Take a recovery point (the deployment must be stopped)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
