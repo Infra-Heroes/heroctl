@@ -22,6 +22,7 @@ func volumesCmd(deps *Deps) *cobra.Command {
 		volumesCreateCmd(deps),
 		volumesListCmd(deps),
 		volumesDestroyCmd(deps),
+		volumesResizeCmd(deps),
 		volumesSnapshotsCmd(deps),
 	)
 
@@ -176,5 +177,45 @@ func volumesDestroyCmd(deps *Deps) *cobra.Command {
 	_ = cmd.MarkFlagRequired("project")
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
 
+	return cmd
+}
+
+func volumesResizeCmd(deps *Deps) *cobra.Command {
+	var projectName string
+	var size int
+	cmd := &cobra.Command{
+		Use:   "resize <name>",
+		Short: "Make a volume larger",
+		Long: `Grows a volume to the given size in GB. A volume can only be made larger, never
+smaller: shrinking would cut off whatever is written past the new end. The
+filesystem on it grows with it when the volume is next mounted.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			project, vol, err := findVolume(ctx, deps, projectName, args[0])
+			if err != nil {
+				return err
+			}
+			if size <= 0 {
+				return fmt.Errorf("--size must be above 0")
+			}
+			if size < vol.SizeGB {
+				return fmt.Errorf("volume %q is %d GB; a volume cannot be made smaller (asked for %d GB)", vol.Name, vol.SizeGB, size)
+			}
+			if size == vol.SizeGB {
+				fmt.Printf("Volume %q is already %d GB.\n", vol.Name, vol.SizeGB)
+				return nil
+			}
+			if err := deps.Client.ResizeVolume(ctx, project.ID, vol.ID, size); err != nil {
+				return fmt.Errorf("resize volume: %w", err)
+			}
+			fmt.Printf("Volume %q grown from %d GB to %d GB.\n", vol.Name, vol.SizeGB, size)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&projectName, "project", "", "Project name (required)")
+	_ = cmd.MarkFlagRequired("project")
+	cmd.Flags().IntVar(&size, "size", 0, "New size in GB (required)")
+	_ = cmd.MarkFlagRequired("size")
 	return cmd
 }

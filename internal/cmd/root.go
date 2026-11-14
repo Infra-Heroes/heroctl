@@ -76,6 +76,7 @@ func newRootCmd() *cobra.Command {
 		projectsCmd(&deps),
 		deploymentsCmd(&deps),
 		membersCmd(&deps),
+		auditCmd(&deps),
 		acceptInviteCmd(&deps),
 
 		deployCmd(&deps),

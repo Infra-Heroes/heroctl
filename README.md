@@ -57,6 +57,12 @@ Deploying your application to the Infra-Heroes cloud is effortless.
    heroctl deploy --project my-project
    ```
 
+   No Docker on this machine, or the image comes from CI or a public registry? Skip the build and deploy the image as it is. `hero.toml` still decides size, port, environment and volumes:
+   ```bash
+   heroctl deploy --project my-project --image docker.io/library/nginx:1.31
+   ```
+   The image must be one the platform can pull without credentials: a public image, or one in the hero registry.
+
 ---
 
 ## 📖 Platform Features
@@ -122,6 +128,26 @@ heroctl deployments rollback my-app 8f3c1a2b --project my-project    # go back t
 
 A revision is named by the last characters of its id, as the list shows them (at least four, as long as they are unique). The rollback redeploys the earlier image with the CPU, memory, environment and replica count it had, and is a revision of its own, so it can be undone the same way. A deployment with a volume is stopped and started again, which takes it offline for a short while. `--force` skips the question.
 
+### 1d. Watching a deployment: metrics, events, alerts, audit
+
+```bash
+heroctl deployments metrics my-app --project my-project --range 24h   # CPU, memory, network: now, average, max, course
+heroctl deployments events my-app --project my-project                # starts, stops, restarts, resizes, deploys
+heroctl audit                                                          # who did what in your organisation
+```
+
+Ranges are `1h`, `6h`, `24h`, `7d` and `30d`. The audit log leaves out the per-request entries (`api.request`) that say nothing about what changed; `--all` shows them too.
+
+**Alerts** notify you when a deployment stays under strain or has no healthy instance:
+
+```bash
+heroctl deployments alerts set my-app --project my-project --metric cpu_percent --threshold 80 --for 300
+heroctl deployments alerts set my-app --project my-project --metric memory_bytes --threshold 400   # megabytes
+heroctl deployments alerts set my-app --project my-project --metric unavailable                    # no healthy instance
+heroctl deployments alerts list my-app --project my-project
+heroctl deployments alerts delete my-app <id> --project my-project   # the id from the list, or its last characters
+```
+
 ### 2. Getting Logs
 
 Stream standard output and error logs directly from your isolated MicroVM running instance:
@@ -132,7 +158,14 @@ heroctl logs my-app --project my-project
 
 # Stream live log outputs (Follow)
 heroctl logs my-app --project my-project -f
+
+# Only the last lines, or only lines that match a regular expression
+heroctl logs my-app --project my-project --tail 50
+heroctl logs my-app --project my-project --grep "error|panic"
+heroctl logs my-app --project my-project -f --grep timeout
 ```
+
+The platform keeps the recent output of the running instance, not a history: what a stopped or replaced instance logged is gone.
 
 ### 3. Custom Domain (CNAME Setup)
 
@@ -215,7 +248,12 @@ Attach high-availability persistent storage volumes to your MicroVM.
    mount = "/var/lib/db-data"
    ```
 
-3. **Recovery points (snapshots):** Take, list, remove and restore point-in-time copies, or let the platform take one every day:
+3. **Grow it:** A volume can be made larger, never smaller:
+   ```bash
+   heroctl volumes resize my-volume-name --size 20 --project my-project
+   ```
+
+4. **Recovery points (snapshots):** Take, list, remove and restore point-in-time copies, or let the platform take one every day:
    ```bash
    heroctl volumes snapshots create my-volume-name --project my-project      # a manual one; the deployment must be stopped
    heroctl volumes snapshots list my-volume-name --project my-project
@@ -256,6 +294,17 @@ LOG_LEVEL = "info"
 API_ENDPOINT = "https://api.external.com"
 ```
 Env variables are loaded and made available to your application process on start.
+
+To change them on a running deployment without a new build, which redeploys it with the new environment:
+
+```bash
+heroctl deployments env list my-app --project my-project
+heroctl deployments env set my-app LOG_LEVEL=debug --project my-project
+heroctl deployments env set my-app DB_PASSWORD=secret:DB_PASSWORD --project my-project   # a project secret, never the value
+heroctl deployments env unset my-app LOG_LEVEL --project my-project
+```
+
+Values are shown as they were set, so a secret appears as its reference.
 
 ### 7. Database Access
 

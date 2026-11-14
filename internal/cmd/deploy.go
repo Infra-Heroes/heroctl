@@ -68,7 +68,7 @@ const deployTimeout = 5 * time.Minute
 const deployPollInterval = time.Second
 
 func deployCmd(deps *Deps) *cobra.Command {
-	var projectName string
+	var projectName, imageRef string
 	var yes bool
 
 	cmd := &cobra.Command{
@@ -77,9 +77,19 @@ func deployCmd(deps *Deps) *cobra.Command {
 		Long: `deploy reads hero.toml from the current directory, builds and pushes a
 Docker image to the hero registry, then submits a new deployment to hero-api.
 
-The project must already exist (create with: heroctl projects create <name>).`,
+The project must already exist (create with: heroctl projects create <name>).
+
+With --image the build and the push are skipped and the deployment runs the
+given image as it is, so no Docker is needed on this machine. The image must be
+one the platform can pull without credentials: a public image, or one in the
+hero registry. hero.toml still decides the size, port, environment and volumes.
+
+  heroctl deploy --project p --image docker.io/library/nginx:1.31`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			if strings.ContainsAny(imageRef, " \t\r\n") {
+				return fmt.Errorf("--image %q must not contain whitespace", imageRef)
+			}
 
 			// 1. Parse hero.toml.
 			f, err := os.Open("hero.toml")
@@ -120,44 +130,51 @@ The project must already exist (create with: heroctl projects create <name>).`,
 				return err
 			}
 
-			// Detect container engine
-			engine, err := detectContainerEngine()
-			if err != nil {
-				return err
-			}
-
-			// hero-api proxies /v2/, so push to the API host, not the backend registry.
-			serverURL := build.ServerURL
-			if envURL := os.Getenv("HERO_API_URL"); envURL != "" {
-				serverURL = envURL
-			}
-			registry := strings.TrimPrefix(strings.TrimPrefix(serverURL, "https://"), "http://")
-
-			// 4. Determine the image tag: short git SHA if available, otherwise timestamp.
-			var imageTag string
-			if gitOut, err := exec.CommandContext(ctx, "git", "rev-parse", "--short", "HEAD").Output(); err == nil {
-				imageTag = strings.TrimSpace(string(gitOut))
-			} else {
-				imageTag = fmt.Sprintf("%d", time.Now().Unix())
-			}
-
-			// 5-7. Build, log in, push: {registry}/{orgName}/{projectName}:{imageTag}
-			image := fmt.Sprintf("%s/%s/%s:%s", registry, org.Name, project.Name, imageTag)
-			login := func() error {
-				creds, err := deps.Client.RegistryCredentials(ctx)
+			// With --image nothing is built or pushed: the deployment runs an image that
+			// already exists, either one pushed earlier (by CI, say) or a public one.
+			image := imageRef
+			if imageRef == "" {
+				// Detect container engine
+				engine, err := detectContainerEngine()
 				if err != nil {
-					return fmt.Errorf("get registry credentials: %w", err)
+					return err
 				}
-				fmt.Printf("Logging into registry %s with %s...\n", registry, engine)
-				// Password via stdin so it never appears in the process list.
-				if err := runEngine(ctx, engine, creds.Password, "login", registry,
-					"--username", creds.Username, "--password-stdin"); err != nil {
-					return fmt.Errorf("docker login: %w", err)
+
+				// hero-api proxies /v2/, so push to the API host, not the backend registry.
+				serverURL := build.ServerURL
+				if envURL := os.Getenv("HERO_API_URL"); envURL != "" {
+					serverURL = envURL
 				}
-				return nil
-			}
-			if err := buildLoginPush(ctx, engine, image, login); err != nil {
-				return err
+				registry := strings.TrimPrefix(strings.TrimPrefix(serverURL, "https://"), "http://")
+
+				// 4. Determine the image tag: short git SHA if available, otherwise timestamp.
+				var imageTag string
+				if gitOut, err := exec.CommandContext(ctx, "git", "rev-parse", "--short", "HEAD").Output(); err == nil {
+					imageTag = strings.TrimSpace(string(gitOut))
+				} else {
+					imageTag = fmt.Sprintf("%d", time.Now().Unix())
+				}
+
+				// 5-7. Build, log in, push: {registry}/{orgName}/{projectName}:{imageTag}
+				image = fmt.Sprintf("%s/%s/%s:%s", registry, org.Name, project.Name, imageTag)
+				login := func() error {
+					creds, err := deps.Client.RegistryCredentials(ctx)
+					if err != nil {
+						return fmt.Errorf("get registry credentials: %w", err)
+					}
+					fmt.Printf("Logging into registry %s with %s...\n", registry, engine)
+					// Password via stdin so it never appears in the process list.
+					if err := runEngine(ctx, engine, creds.Password, "login", registry,
+						"--username", creds.Username, "--password-stdin"); err != nil {
+						return fmt.Errorf("docker login: %w", err)
+					}
+					return nil
+				}
+				if err := buildLoginPush(ctx, engine, image, login); err != nil {
+					return err
+				}
+			} else {
+				fmt.Printf("Deploying image %s without building.\n", image)
 			}
 
 			// 8. Resolve volume names → IDs.
@@ -270,6 +287,7 @@ The project must already exist (create with: heroctl projects create <name>).`,
 	}
 
 	cmd.Flags().StringVar(&projectName, "project", "", "Project name to deploy to (required)")
+	cmd.Flags().StringVar(&imageRef, "image", "", "Deploy this existing image instead of building one (no Docker needed)")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt (for CI/non-interactive use)")
 	_ = cmd.MarkFlagRequired("project")
 
