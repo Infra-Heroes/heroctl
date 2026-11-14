@@ -65,11 +65,13 @@ Deploying your application to the Infra-Heroes cloud is effortless.
 
    **From CI** (GitHub Actions): create a deploy token with `heroctl tokens create --name ci --scope deploy`, store it as the secret `HERO_TOKEN`, then:
    ```yaml
-   - run: curl -fsSL https://infra-heroes.de/install.sh | bash
-   - run: ~/.local/bin/heroctl deploy --project my-project --yes --token "$HERO_TOKEN"
-     env:
-       HERO_TOKEN: ${{ secrets.HERO_TOKEN }}
+   - uses: actions/checkout@v4
+   - uses: infra-heroes/deploy-action@v1
+     with:
+       token: ${{ secrets.HERO_TOKEN }}
+       project: my-project
    ```
+   The action ([infra-heroes/deploy-action](https://github.com/Infra-Heroes/deploy-action)) builds the image from your Dockerfile and deploys it; `image:` deploys an existing one instead. On other CI systems install heroctl with `curl -fsSL https://infra-heroes.de/install.sh | bash` and run `heroctl deploy --project my-project --yes --token "$HERO_TOKEN"`.
    `heroctl logs`, `deployments rollback` and the other commands take `--token` as well.
    Keys in `hero.toml` that heroctl does not know (for example `port` under `[app]` instead of `[deploy]`) are reported as warnings.
 
