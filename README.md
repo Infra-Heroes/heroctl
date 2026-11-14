@@ -340,15 +340,38 @@ heroctl deployments env unset my-app LOG_LEVEL --project my-project
 
 Values are shown as they were set, so a secret appears as its reference.
 
-### 7. Database Access
+### 7. Databases
 
-Access managed project databases over the isolated virtual network (VXLAN overlay) namespace.
+A microVM runs one image, so a database is not a sidecar inside your app's VM. It is a private deployment of its own in the same project, with a volume and a generated password, and your app gets the connection URL as an environment variable. Declare it next to the app in `hero.toml`:
 
-By configuring your application connection string, you bypass public ports entirely. Connect internally via:
-```txt
-postgres://username:password@db:5432/database_name
+```toml
+[[databases]]
+name    = "db"          # becomes the service name <app>-db
+engine  = "postgres"    # postgres, mariadb (MySQL compatible) or redis
+version = "17"          # optional; postgres 17, mariadb 11.4, redis 8 by default
+size_gb = 5             # optional; size of the data volume
+
+[[databases]]
+name   = "cache"
+engine = "redis"
 ```
-Internal service names resolve via the platform DNS facade (`<app>.svc.platform`, with `search svc.platform` preconfigured in the VM — so the short app name works). Names are bound to private VXLAN IPs, ensuring secure tenant isolation.
+
+On the next `heroctl deploy` the database is created, started and waited for, and your app receives `DATABASE_URL` (`REDIS_URL` for redis; `env = "NAME"` picks another name, which you need when two databases would share one). A database that already exists is left alone, so deploying the app never restarts it. A stopped one is started again.
+
+```bash
+heroctl db list --project my-project                 # the databases of a project
+heroctl db destroy my-app-db --project my-project    # deletes it with its data, volume and secrets
+```
+
+Good to know:
+
+- The password is generated and kept as a project secret; you never handle it. Creating the secrets needs a token with scope `all`. A deploy-scope token (CI) can use databases that exist, not create them: create them once from your machine.
+- Reach the database only from apps of the same project, by its short name (`my-app-db`). It has no public address.
+- `mysql` is accepted as `engine` and means MariaDB: the official MySQL image does not start in a microVM.
+- Redis has no password; it is reachable only inside the project's isolated network.
+- Backups: a running volume cannot be snapshotted, so dump the data from your app (`pg_dump`, `mysqldump`) and store it outside.
+
+The platform's internal DNS (`<app>.svc.platform`, with `search svc.platform` set in every VM) resolves service names to private VXLAN IPs, which keeps tenants apart.
 
 ---
 

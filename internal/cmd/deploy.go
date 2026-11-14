@@ -14,6 +14,7 @@ import (
 
 	"github.com/Infra-Heroes/heroctl/internal/build"
 	"github.com/Infra-Heroes/heroctl/internal/client"
+	"github.com/Infra-Heroes/heroctl/internal/managed"
 	"github.com/Infra-Heroes/heroctl/internal/toml"
 )
 
@@ -178,6 +179,34 @@ hero registry. hero.toml still decides the size, port, environment and volumes.
 				}
 			} else {
 				fmt.Printf("Deploying image %s without building.\n", image)
+			}
+
+			// 7b. Managed databases declared in hero.toml: make sure they exist and are
+			// healthy, and hand the app their connection URLs. A database that already
+			// exists is left alone, so an app deploy never restarts it.
+			if len(heroCfg.Databases) > 0 {
+				specs := make([]managed.Spec, len(heroCfg.Databases))
+				for i, d := range heroCfg.Databases {
+					specs[i] = managed.Spec{Name: d.Name, Engine: d.Engine, Version: d.VersionString(), SizeGB: d.SizeGB, Env: d.Env}
+				}
+				specs, err := managed.Validate(heroCfg.App.Name, specs)
+				if err != nil {
+					return fmt.Errorf("hero.toml: %w", err)
+				}
+				for _, sp := range specs {
+					if _, taken := heroCfg.Env[sp.Env]; taken {
+						return fmt.Errorf("hero.toml: [env] already sets %s, which database %q would receive its URL as; rename one of them (database env = \"...\")", sp.Env, sp.Name)
+					}
+				}
+				results, err := managed.Provision(ctx, deps.Client, project.ID, heroCfg.App.Name, specs, managed.Options{
+					Out: func(format string, a ...any) { fmt.Printf(format, a...) },
+				})
+				if err != nil {
+					return err
+				}
+				for _, r := range results {
+					heroCfg.Env[r.EnvVar] = r.EnvValue
+				}
 			}
 
 			// 8. Resolve volume names → IDs.
