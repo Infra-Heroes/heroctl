@@ -148,13 +148,13 @@ func pickRevision(revs []client.DeploymentRevision, want string) (*client.Deploy
 
 func printRevisions(r *client.DeploymentRevisions) {
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "\tREVISION\tIMAGE\tCPU\tMEM(MB)\tREPLICAS\tBY\tWHEN")
+	_, _ = fmt.Fprintln(tw, "\tREVISION\tIMAGE\tCPU\tMEM(MB)\tREPLICAS\tBY\tWHEN")
 	for _, v := range r.Revisions {
 		mark := " "
 		if v.Current {
 			mark = "*"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
 			mark, shortID(v.ID), shortImage(v.Image), v.CPU, v.MemoryMB, v.Replicas, dash(v.CreatedBy), when(v.CreatedAt))
 	}
 	_ = tw.Flush()
