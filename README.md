@@ -82,6 +82,24 @@ max_replicas = 5
 
 **Autoscaling.** With `max_replicas` above `min_replicas` the platform watches the average CPU of the replicas every 30 seconds: above 80 % it adds one, below 20 % it removes one, always within your minimum and maximum. A new deploy, resize or restart starts with the count the autoscaler has reached, not with the minimum.
 
+**Tuning the autoscaler per app.** The thresholds above are the platform's. An app sets its own, and can also scale on memory, with labels in `hero.toml`:
+
+```toml
+[deploy]
+min_replicas = 1
+max_replicas = 5
+
+[labels]
+"hero-scale-cpu-up"    = "70"   # add a replica above this average CPU (percent)
+"hero-scale-cpu-down"  = "30"   # remove one below this
+"hero-scale-memory-up" = "80"   # also add one above this share of the VM's memory (percent)
+```
+
+- All three are optional and take a number of percent: `cpu-up` and `memory-up` from 1 to 100, `cpu-down` from 0 to 100, and `cpu-down` must be below `cpu-up`. A value that is not valid is refused when you deploy.
+- Memory is only watched when `hero-scale-memory-up` is set. It is the memory the app holds in its VM, not what the system keeps as cache, so a file cache that fills up does not count as pressure.
+- A replica is removed only when CPU is below `cpu-down` **and**, if memory is watched, memory is below half of its line, so that removing one does not push the rest straight back over it. If memory is watched but cannot be read at that moment, nothing is removed.
+- One replica is added or removed per check, every 30 seconds, always within `min_replicas` and `max_replicas`.
+
 **Vertical Scaling** (Executed via CLI)
 To adjust CPU cores and Memory limits of an active deployment, run:
 ```bash
