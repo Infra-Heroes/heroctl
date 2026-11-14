@@ -32,7 +32,7 @@ Install the latest release with the install script:
 curl -sL https://infra-heroes.de/install.sh | bash
 ```
 
-*(For other platforms, you can download the binaries directly from the [GitHub Releases](https://github.com/Infra-Heroes/heroctl/releases) page).*
+*(For other platforms, or to pick a version, download the binary directly from the [Releases](https://codeberg.org/InfraHeroes/heroctl/releases) page on Codeberg).*
 
 ---
 
@@ -109,6 +109,18 @@ heroctl deployments schedule my-app --project my-project --remove   # delete it
 ```
 
 Times are cron expressions (minute hour day-of-month month day-of-week). Changing one side keeps the other.
+
+### 1c. Going back to an earlier version (rollback)
+
+Every deploy, resize, environment change and rollback leaves a revision behind. List them and put one back:
+
+```bash
+heroctl deployments revisions my-app --project my-project            # newest first, * = the image running now
+heroctl deployments rollback my-app --project my-project             # undo the last change (asks first)
+heroctl deployments rollback my-app 8f3c1a2b --project my-project    # go back to a given revision
+```
+
+A revision is named by the last characters of its id, as the list shows them (at least four, as long as they are unique). The rollback redeploys the earlier image with the CPU, memory, environment and replica count it had, and is a revision of its own, so it can be undone the same way. A deployment with a volume is stopped and started again, which takes it offline for a short while. `--force` skips the question.
 
 ### 2. Getting Logs
 
