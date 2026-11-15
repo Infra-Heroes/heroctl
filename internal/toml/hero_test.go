@@ -225,3 +225,14 @@ version = 8.4
 		t.Errorf("%+v", cfg.Databases)
 	}
 }
+
+func TestDatabaseConfig_VersionString(t *testing.T) {
+	for _, tc := range []struct {
+		in   any
+		want string
+	}{{nil, ""}, {"17", "17"}, {int64(17), "17"}, {8.4, "8.4"}, {true, "true"}} {
+		if got := (DatabaseConfig{Version: tc.in}).VersionString(); got != tc.want {
+			t.Errorf("%v -> %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
