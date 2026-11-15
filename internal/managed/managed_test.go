@@ -260,3 +260,16 @@ func TestProvision_NothingIsDeletedWhenTheDatabaseWorked(t *testing.T) {
 		t.Errorf("deleted = %v", api.deleted)
 	}
 }
+
+func TestWaitHealthy_TimesOutAndStopsOnCancel(t *testing.T) {
+	api := &fakeAPI{status: client.DeploymentStatus{NomadStatus: "running", Healthy: false}}
+	err := waitHealthy(context.Background(), api, "p", "shop-db", Options{Poll: time.Millisecond, Timeout: 20 * time.Millisecond})
+	if err == nil || !strings.Contains(err.Error(), "did not become healthy") {
+		t.Errorf("timeout: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := waitHealthy(ctx, api, "p", "shop-db", Options{Poll: time.Hour, Timeout: time.Hour}); !errors.Is(err, context.Canceled) {
+		t.Errorf("cancel: %v", err)
+	}
+}
