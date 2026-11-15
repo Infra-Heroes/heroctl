@@ -185,3 +185,43 @@ func TestParse_NoWarningsForAValidFile(t *testing.T) {
 		t.Errorf("unexpected warnings: %v", cfg.Warnings)
 	}
 }
+
+func TestParse_Databases(t *testing.T) {
+	cfg, err := Parse(strings.NewReader(`
+[app]
+name = "shop"
+[deploy]
+health_path = "/"
+
+[[databases]]
+name = "db"
+engine = "postgres"
+version = 17
+size_gb = 10
+
+[[databases]]
+name = "cache"
+engine = "redis"
+version = "7"
+env = "CACHE_URL"
+
+[[databases]]
+name = "old"
+engine = "mysql"
+version = 8.4
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Databases) != 3 || len(cfg.Warnings) != 0 {
+		t.Fatalf("databases=%v warnings=%v", cfg.Databases, cfg.Warnings)
+	}
+	for i, want := range []string{"17", "7", "8.4"} {
+		if got := cfg.Databases[i].VersionString(); got != want {
+			t.Errorf("version %d = %q, want %q", i, got, want)
+		}
+	}
+	if cfg.Databases[1].Env != "CACHE_URL" || cfg.Databases[0].SizeGB != 10 {
+		t.Errorf("%+v", cfg.Databases)
+	}
+}

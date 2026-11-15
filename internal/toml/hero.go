@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -20,12 +21,45 @@ type HeroConfig struct {
 	Env     map[string]string `toml:"env"`
 	Labels  map[string]string `toml:"labels"`
 	Volumes []VolumeConfig    `toml:"volumes"`
+	// Databases are provisioned by heroctl as private deployments of their own.
+	Databases []DatabaseConfig `toml:"databases"`
 
 	// Warnings lists keys that were set but are not known. They are not an error
 	// (an older heroctl must still read a newer file), but a key that is silently
 	// ignored, such as a port written under [app], leaves the app on its default
 	// and the deploy waiting for a health check that can never pass.
 	Warnings []string `toml:"-"`
+}
+
+// DatabaseConfig asks for a managed database next to the app.
+type DatabaseConfig struct {
+	// Name identifies the database within the app ("db", "cache").
+	Name string `toml:"name"`
+	// Engine is postgres, mysql or redis.
+	Engine string `toml:"engine"`
+	// Version is the engine's major version. A bare number (17, 8.4) is accepted
+	// as well as a string.
+	Version any `toml:"version"`
+	// SizeGB is the size of the data volume (default 5).
+	SizeGB int `toml:"size_gb"`
+	// Env is the variable the connection URL is handed to the app under; the
+	// default is DATABASE_URL (postgres, mysql) or REDIS_URL.
+	Env string `toml:"env"`
+}
+
+// VersionString returns the version as written, however it was typed.
+func (d DatabaseConfig) VersionString() string {
+	switch v := d.Version.(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	}
+	return fmt.Sprint(d.Version)
 }
 
 // VolumeConfig declares a volume attachment for a deployment.
