@@ -368,7 +368,7 @@ Good to know:
 - The password is generated and kept as a project secret; you never handle it. Creating the secrets needs a token with scope `all`. A deploy-scope token (CI) can use databases that exist, not create them: create them once from your machine.
 - Reach the database only from apps of the same project, by its short name (`my-app-db`). It has no public address.
 - `mysql` is accepted as `engine` and means MariaDB: the official MySQL image does not start in a microVM.
-- Redis has no password; it is reachable only inside the project's isolated network.
+- Redis has no password; it is reachable only inside the project's isolated network. Treat it as a cache: it saves snapshots to its volume (after 60 s with 10000 changes, 5 min with 100, an hour with 1), so a restart can lose the changes since the last one. If you need durable data, use postgres or mariadb.
 - Backups: a running volume cannot be snapshotted, so dump the data from your app (`pg_dump`, `mysqldump`) and store it outside.
 
 The platform's internal DNS (`<app>.svc.platform`, with `search svc.platform` set in every VM) resolves service names to private VXLAN IPs, which keeps tenants apart.
