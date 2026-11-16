@@ -80,6 +80,7 @@ func newRootCmd() *cobra.Command {
 		acceptInviteCmd(&deps),
 
 		deployCmd(&deps),
+		previewCmd(&deps),
 		logsCmd(&deps),
 		volumesCmd(&deps),
 		dbCmd(&deps),

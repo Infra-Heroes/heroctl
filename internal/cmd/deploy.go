@@ -69,7 +69,7 @@ const deployTimeout = 5 * time.Minute
 const deployPollInterval = time.Second
 
 func deployCmd(deps *Deps) *cobra.Command {
-	var projectName, imageRef string
+	var projectName, imageRef, preview string
 	var yes bool
 
 	cmd := &cobra.Command{
@@ -85,7 +85,12 @@ given image as it is, so no Docker is needed on this machine. The image must be
 one the platform can pull without credentials: a public image, or one in the
 hero registry. hero.toml still decides the size, port, environment and volumes.
 
-  heroctl deploy --project p --image docker.io/library/nginx:1.31`,
+  heroctl deploy --project p --image docker.io/library/nginx:1.31
+
+With --preview the app is deployed under another name, <app>-<name>, next to the
+real one: for the duration of a pull request. See "heroctl preview --help".
+
+  heroctl deploy --project p --preview pr-12`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if strings.ContainsAny(imageRef, " \t\r\n") {
@@ -107,6 +112,15 @@ hero registry. hero.toml still decides the size, port, environment and volumes.
 			}
 			if err := validateAppName(heroCfg.App.Name); err != nil {
 				return fmt.Errorf("hero.toml: %w", err)
+			}
+			if preview != "" {
+				notes, err := applyPreview(heroCfg, preview)
+				if err != nil {
+					return err
+				}
+				for _, n := range notes {
+					fmt.Fprintf(os.Stderr, "Preview: %s\n", n)
+				}
 			}
 			if err := validateEnv(heroCfg.Env); err != nil {
 				return fmt.Errorf("hero.toml [env]: %w", err)
@@ -322,6 +336,7 @@ hero registry. hero.toml still decides the size, port, environment and volumes.
 	}
 
 	cmd.Flags().StringVar(&projectName, "project", "", "Project name to deploy to (required)")
+	cmd.Flags().StringVar(&preview, "preview", "", "Deploy as a preview named <app>-<name> (for example pr-12): no custom domains or volumes, own databases, scale to zero")
 	cmd.Flags().StringVar(&imageRef, "image", "", "Deploy this existing image instead of building one (no Docker needed)")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt (for CI/non-interactive use)")
 	_ = cmd.MarkFlagRequired("project")

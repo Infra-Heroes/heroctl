@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"sort"
@@ -118,22 +119,8 @@ This cannot be undone. <database> is the name shown by "heroctl db list".`,
 					return nil
 				}
 			}
-			forApp := target.Labels[managed.LabelFor]
-			n := managed.NamesFor(forApp, strings.TrimPrefix(target.AppName, forApp+"-"))
-			if err := deps.Client.DeleteDeployment(ctx, project.ID, target.AppName); err != nil {
-				return fmt.Errorf("delete deployment: %w", err)
-			}
-			if vols, err := deps.Client.ListVolumes(ctx, project.ID); err == nil {
-				for _, v := range vols {
-					if v.Name == n.Volume {
-						if err := deps.Client.DeleteVolume(ctx, project.ID, v.ID); err != nil {
-							fmt.Printf("Warning: the volume %s was not deleted: %v\n", v.Name, err)
-						}
-					}
-				}
-			}
-			for _, k := range []string{n.PasswordKey, n.URLKey} {
-				_ = deps.Client.DeleteSecret(ctx, project.ID, k)
+			if err := destroyDatabase(ctx, deps, project.ID, *target); err != nil {
+				return err
 			}
 			fmt.Printf("Database %s deleted.\n", target.AppName)
 			return nil
@@ -143,4 +130,28 @@ This cannot be undone. <database> is the name shown by "heroctl db list".`,
 	_ = cmd.MarkFlagRequired("project")
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
 	return cmd
+}
+
+// destroyDatabase deletes a managed database's deployment, its volume and its two
+// secrets. The volume and the secrets are cleaned up on a best-effort basis: once
+// the deployment is gone the database is gone, and a leftover is only clutter.
+func destroyDatabase(ctx context.Context, deps *Deps, projectID string, target client.Deployment) error {
+	forApp := target.Labels[managed.LabelFor]
+	n := managed.NamesFor(forApp, strings.TrimPrefix(target.AppName, forApp+"-"))
+	if err := deps.Client.DeleteDeployment(ctx, projectID, target.AppName); err != nil {
+		return fmt.Errorf("delete deployment: %w", err)
+	}
+	if vols, err := deps.Client.ListVolumes(ctx, projectID); err == nil {
+		for _, v := range vols {
+			if v.Name == n.Volume {
+				if err := deps.Client.DeleteVolume(ctx, projectID, v.ID); err != nil {
+					fmt.Printf("Warning: the volume %s was not deleted: %v\n", v.Name, err)
+				}
+			}
+		}
+	}
+	for _, k := range []string{n.PasswordKey, n.URLKey} {
+		_ = deps.Client.DeleteSecret(ctx, projectID, k)
+	}
+	return nil
 }

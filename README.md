@@ -201,6 +201,17 @@ heroctl logs my-app --project my-project --since 2d --until 1d --grep "panic"
 
 Without `--since`/`--until` you get the running instance's output. With either you get the history of all runs, oldest line first, at most 5000 lines (`--tail N` keeps the newest N). Times are RFC 3339 timestamps or a time ago (`90m`, `6h`, `2d`). `--follow` only works on the live output.
 
+### Preview deployments
+
+Test a pull request on its own address before it is merged. A preview is your app deployed under another name, `<app>-<preview>`, next to the real one:
+
+```bash
+heroctl deploy --project my-project --preview pr-12     # deploys my-app-pr-12
+heroctl preview delete pr-12 --project my-project       # removes it and the databases it created
+```
+
+A preview never touches the real app: it gets no custom domains and no volumes (a volume belongs to one deployment), its `[[databases]]` are its own, empty ones, and it scales to zero so it only runs while somebody opens it. `preview delete` is safe to run twice. The GitHub Action does both for you with `preview: true`, see [deploy-action](https://github.com/Infra-Heroes/deploy-action).
+
 ### 3. Custom Domain (CNAME Setup)
 
 Run workloads under your own domain name by completing these two steps:
