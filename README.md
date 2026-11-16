@@ -233,7 +233,7 @@ heroctl deploy --project my-project --yes
 heroctl logs queue-worker --project my-project --follow
 ```
 
-A worker has no address, no health check and no `port` or `health_path`; it counts as started once it has been running for a few seconds. It is never public and cannot `scale_to_zero` (nothing would ever start it again), and `heroctl validate` refuses `custom_domains` and the health settings on it.
+A worker has no address, no health check and no `port` or `health_path`; it counts as started once it has been running for a few seconds. It is never public and cannot `scale_to_zero` (nothing would ever start it again), and `heroctl validate` refuses `custom_domains` and the health settings on it. If the process exits or crashes, the platform restarts it.
 
 ### 3. Custom Domain (CNAME Setup)
 
