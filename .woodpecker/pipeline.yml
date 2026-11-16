@@ -70,6 +70,11 @@ steps:
           mkdir -p dist
           for os in linux darwin windows; do
             for arch in amd64 arm64; do
+              # Windows is built for x86-64 only: there is no Windows-on-ARM user base
+              # worth a sixth file in every release (and in the Codeberg quota).
+              if [ "$os" = "windows" ] && [ "$arch" = "arm64" ]; then
+                continue
+              fi
               ext=""
               if [ "$os" = "windows" ]; then
                 ext=".exe"
