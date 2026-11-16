@@ -80,3 +80,52 @@ func TestLogsPreservesUnterminatedFinalLine(t *testing.T) {
 		t.Errorf("output = %q, want %q", got, want)
 	}
 }
+
+func TestLogsHistoryPassesTheWindowAndPrintsLinesWithTime(t *testing.T) {
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v1/projects":
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": "proj-1", "name": "demo"}})
+		case strings.HasSuffix(r.URL.Path, "/logs/history"):
+			gotQuery = r.URL.RawQuery
+			_, _ = w.Write([]byte(`{"from":"2026-11-16T10:00:00Z","to":"2026-11-16T12:00:00Z","runs":2,"truncated":true,
+			 "lines":[{"time":"2026-11-16T10:30:01Z","stream":"stdout","alloc":"a","line":"boot\n"},
+			          {"time":"2026-11-16T10:30:02Z","stream":"stderr","alloc":"b","line":"panic: x"}]}`))
+		default:
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	var out, errOut bytes.Buffer
+	cmd := logsCmd(newTestDeps(srv))
+	cmd.SetOut(&out)
+	cmd.SetErr(&errOut)
+	cmd.SetArgs([]string{"my-app", "--project", "demo", "--since", "2h", "--grep", "panic|boot", "--tail", "50"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"since=2h", "limit=50", "q=panic%7Cboot"} {
+		if !strings.Contains(gotQuery, want) {
+			t.Errorf("query %q lacks %q", gotQuery, want)
+		}
+	}
+	if want := "2026-11-16 10:30:01  boot\n2026-11-16 10:30:02  panic: x\n"; out.String() != want {
+		t.Errorf("output = %q", out.String())
+	}
+	if !strings.Contains(errOut.String(), "more lines exist") {
+		t.Errorf("a truncated window must say so: %q", errOut.String())
+	}
+}
+
+func TestLogsHistoryCannotFollow(t *testing.T) {
+	srv := logsTestServer(t, "")
+	defer srv.Close()
+	cmd := logsCmd(newTestDeps(srv))
+	cmd.SetArgs([]string{"my-app", "--project", "demo", "--since", "1h", "-f"})
+	cmd.SilenceUsage, cmd.SilenceErrors = true, true
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "--follow") {
+		t.Errorf("err = %v", err)
+	}
+}
