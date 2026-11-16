@@ -212,6 +212,29 @@ heroctl preview delete pr-12 --project my-project       # removes it and the dat
 
 A preview never touches the real app: it gets no custom domains and no volumes (a volume belongs to one deployment), its `[[databases]]` are its own, empty ones, and it scales to zero so it only runs while somebody opens it. `preview delete` is safe to run twice. The GitHub Action does both for you with `preview: true`, see [deploy-action](https://github.com/Infra-Heroes/deploy-action).
 
+### Workers (background processes)
+
+A queue consumer, a bot or a long-running job has nothing to answer on a port. Mark it as a worker:
+
+```toml
+[app]
+name = "queue-worker"
+
+[deploy]
+worker = true
+memory_mb = 256
+
+[env]
+QUEUE_URL = "secret:QUEUE_URL"
+```
+
+```bash
+heroctl deploy --project my-project --yes
+heroctl logs queue-worker --project my-project --follow
+```
+
+A worker has no address, no health check and no `port` or `health_path`; it counts as started once it has been running for a few seconds. It is never public and cannot `scale_to_zero` (nothing would ever start it again), and `heroctl validate` refuses `custom_domains` and the health settings on it.
+
 ### 3. Custom Domain (CNAME Setup)
 
 Run workloads under your own domain name by completing these two steps:

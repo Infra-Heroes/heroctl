@@ -163,3 +163,13 @@ func TestPreviewDelete_APreviewThatIsGoneIsNotAnError(t *testing.T) {
 		t.Errorf("nothing exists, nothing may be deleted: %v", deleted(calls))
 	}
 }
+
+func TestApplyPreview_AWorkerKeepsRunningInsteadOfScalingToZero(t *testing.T) {
+	cfg := parseTOML(t, "[app]\nname = \"queue\"\n[deploy]\nworker = true\n")
+	if _, err := applyPreview(cfg, "pr-3"); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Deploy.ScaleToZero {
+		t.Error("nothing would ever start a worker that scaled to zero")
+	}
+}

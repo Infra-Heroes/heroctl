@@ -94,6 +94,10 @@ type DeployConfig struct {
 	HealthPath string `toml:"health_path"`
 	// ScaleToZero enables automatic shutdown of the app when idle (default false).
 	ScaleToZero bool `toml:"scale_to_zero"`
+	// Worker marks a background process: it listens on nothing, has no address and no
+	// health check, and runs until it is stopped. port, health_path and the other
+	// health settings do not apply to it, and it cannot be public or scale to zero.
+	Worker bool `toml:"worker"`
 	// Private marks the deployment as internal-only (no public relay, no Traefik route).
 	// Default false (public).
 	Private bool `toml:"private"`
@@ -147,6 +151,11 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 	if cfg.Deploy.MaxReplicas < cfg.Deploy.MinReplicas {
 		cfg.Deploy.MaxReplicas = cfg.Deploy.MinReplicas
 	}
+	if cfg.Deploy.Worker {
+		if err := cfg.makeWorker(); err != nil {
+			return nil, err
+		}
+	}
 	if cfg.Deploy.HealthPath == "" {
 		return nil, fmt.Errorf("hero.toml: [deploy] health_path is required")
 	}
@@ -161,6 +170,11 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 	switch cfg.Deploy.HealthCheckType {
 	case "", "http", "tcp":
 		// valid
+	case "none":
+		// Only a worker has none, and makeWorker is what gives it.
+		if !cfg.Deploy.Worker {
+			return nil, fmt.Errorf("hero.toml: [deploy] health_check_type \"none\" is for workers: set worker = true instead")
+		}
 	default:
 		return nil, fmt.Errorf("hero.toml: [deploy] health_check_type must be \"http\" or \"tcp\" (got %q)", cfg.Deploy.HealthCheckType)
 	}
@@ -190,12 +204,30 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 	return &cfg, nil
 }
 
+// makeWorker settles a [deploy] worker = true: it refuses what a worker cannot be
+// and fills in what the platform needs to store it.
+func (cfg *HeroConfig) makeWorker() error {
+	d := &cfg.Deploy
+	switch {
+	case d.ScaleToZero:
+		return fmt.Errorf("hero.toml: [deploy] a worker cannot scale_to_zero: nothing would ever start it again")
+	case len(cfg.App.CustomDomains) > 0:
+		return fmt.Errorf("hero.toml: [app] a worker has no address, so custom_domains does not apply")
+	case d.HealthCheckType != "" || d.HealthCheckPort != 0:
+		return fmt.Errorf("hero.toml: [deploy] a worker has no health check: remove health_check_type and health_check_port")
+	}
+	d.HealthCheckType = "none"
+	d.Private = true
+	d.HealthPath = "/"
+	return nil
+}
+
 // deployKeys are the keys that belong under [deploy]; written elsewhere they are
 // a common slip, and the warning can then say where they go.
 var deployKeys = map[string]bool{
 	"cpu": true, "memory_mb": true, "port": true, "health_path": true, "scale_to_zero": true,
 	"private": true, "health_check_type": true, "health_check_port": true,
-	"min_replicas": true, "max_replicas": true,
+	"min_replicas": true, "max_replicas": true, "worker": true,
 }
 
 // unknownKeys reports the keys of raw that HeroConfig does not read.

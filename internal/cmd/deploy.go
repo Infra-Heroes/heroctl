@@ -296,7 +296,11 @@ real one: for the duration of a pull request. See "heroctl preview --help".
 				return deploymentError(err, projectName)
 			}
 
-			fmt.Printf("Deployment %q submitted. Waiting for VM to start and become healthy", heroCfg.App.Name)
+			if heroCfg.Deploy.Worker {
+				fmt.Printf("Worker %q submitted. Waiting for it to start", heroCfg.App.Name)
+			} else {
+				fmt.Printf("Deployment %q submitted. Waiting for VM to start and become healthy", heroCfg.App.Name)
+			}
 
 			deadline := time.Now().Add(deployTimeout)
 			for polls := 0; time.Now().Before(deadline); polls++ {
@@ -328,6 +332,10 @@ real one: for the duration of a pull request. See "heroctl preview --help".
 				}
 			}
 			fmt.Println()
+			if heroCfg.Deploy.Worker {
+				return fmt.Errorf("timed out after %s waiting for the worker to start. Look at its output with: heroctl logs %s --project %s",
+					deployTimeout, heroCfg.App.Name, projectName)
+			}
 			return fmt.Errorf("timed out after %s waiting for deployment to become healthy. "+
 				"Usually the app listens on another port than %d ([deploy] port) or does not answer %s with a 2xx ([deploy] health_path). "+
 				"Look at the app's output with: heroctl logs %s --project %s",
