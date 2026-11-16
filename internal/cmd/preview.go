@@ -16,6 +16,9 @@ import (
 // with the real app that could be damaged: not its domains, not its volumes, and
 // the databases it needs are its own, empty ones.
 
+// labelPreview marks a deployment as the preview of a pull request.
+const labelPreview = "hero-preview"
+
 var previewNameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
 
 // previewAppName is the app name of the preview called name, or an error if the
@@ -40,6 +43,12 @@ func applyPreview(cfg *toml.HeroConfig, name string) ([]string, error) {
 	}
 	var notes []string
 	cfg.App.Name = full
+	// The platform lets a deploy-scoped token delete only deployments carrying this
+	// label, which is what lets a CI job remove the preview of a closed pull request.
+	if cfg.Labels == nil {
+		cfg.Labels = map[string]string{}
+	}
+	cfg.Labels[labelPreview] = "true"
 	if len(cfg.App.CustomDomains) > 0 {
 		notes = append(notes, "custom domains are not used by a preview, it gets its own address")
 		cfg.App.CustomDomains = nil
@@ -118,28 +127,37 @@ does not exist is not an error, so this is safe to run when a pull request is cl
 			if err != nil {
 				return fmt.Errorf("list deployments: %w", err)
 			}
-			for _, d := range managedDatabases(all) {
-				if d.Labels[managed.LabelFor] == full {
-					if err := destroyDatabase(ctx, deps, project.ID, d); err != nil {
-						return err
-					}
-					fmt.Printf("Database %s deleted.\n", d.AppName)
-				}
-			}
 			found := false
 			for _, d := range all {
 				if d.AppName == full {
 					found = true
 				}
 			}
-			if !found {
+			// The app first: it is the part a deploy-scoped token may delete, and the
+			// part that runs and costs. The databases it created come after.
+			if found {
+				if err := deps.Client.DeleteDeployment(ctx, project.ID, full); err != nil {
+					return fmt.Errorf("delete deployment: %w", err)
+				}
+				fmt.Printf("Preview %s deleted.\n", full)
+			} else {
 				fmt.Printf("Preview %s does not exist, nothing to delete.\n", full)
-				return nil
 			}
-			if err := deps.Client.DeleteDeployment(ctx, project.ID, full); err != nil {
-				return fmt.Errorf("delete deployment: %w", err)
+			var left []string
+			for _, d := range managedDatabases(all) {
+				if d.Labels[managed.LabelFor] != full {
+					continue
+				}
+				if err := destroyDatabase(ctx, deps, project.ID, d); err != nil {
+					fmt.Fprintf(os.Stderr, "Database %s was not deleted: %v\n", d.AppName, err)
+					left = append(left, d.AppName)
+					continue
+				}
+				fmt.Printf("Database %s deleted.\n", d.AppName)
 			}
-			fmt.Printf("Preview %s deleted.\n", full)
+			if len(left) > 0 {
+				return fmt.Errorf("the preview's database(s) %v are still there: deleting a database needs a token with scope all (a deploy token may delete the preview app only); run: heroctl db destroy <name> --project %s", left, projectName)
+			}
 			return nil
 		},
 	}
