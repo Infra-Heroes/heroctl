@@ -182,7 +182,7 @@ func jobsListCmd(deps *Deps) *cobra.Command {
 			}
 			jobs := scheduledJobs(all)
 			if len(jobs) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No scheduled jobs. Add a [[jobs]] entry to hero.toml and deploy.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No scheduled jobs. Add a [[jobs]] entry to hero.toml and deploy.")
 				return nil
 			}
 			tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
@@ -217,7 +217,7 @@ func jobsRunCmd(deps *Deps) *cobra.Command {
 			if err := deps.Client.RunJob(cmd.Context(), project.ID, args[0]); err != nil {
 				return fmt.Errorf("run job: %w", err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Run of %s started. Follow it with: heroctl logs %s --project %s --since 5m\n", args[0], args[0], projectName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run of %s started. Follow it with: heroctl logs %s --project %s --since 5m\n", args[0], args[0], projectName)
 			return nil
 		},
 	}
@@ -244,7 +244,7 @@ func jobsRunsCmd(deps *Deps) *cobra.Command {
 				return fmt.Errorf("list runs: %w", err)
 			}
 			if len(runs) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No runs yet.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No runs yet.")
 				return nil
 			}
 			tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
