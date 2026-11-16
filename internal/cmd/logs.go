@@ -150,9 +150,9 @@ func printLogHistory(cmd *cobra.Command, deps *Deps, projectID, app, since, unti
 		}
 	}
 	if len(h.Lines) == 0 {
-		fmt.Fprintf(cmd.ErrOrStderr(), "no log lines between %s and %s\n", h.From.Format(time.RFC3339), h.To.Format(time.RFC3339))
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "no log lines between %s and %s\n", h.From.Format(time.RFC3339), h.To.Format(time.RFC3339))
 	} else if h.Truncated {
-		fmt.Fprintln(cmd.ErrOrStderr(), "more lines exist in this window: narrow it with --since/--until or --grep")
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "more lines exist in this window: narrow it with --since/--until or --grep")
 	}
 	return nil
 }
