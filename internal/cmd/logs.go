@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
 
 func logsCmd(deps *Deps) *cobra.Command {
-	var project, grep string
+	var project, grep, since, until string
 	var follow bool
 	var tail int
 
@@ -26,8 +28,16 @@ new lines arrive.
   heroctl logs my-app --project p --grep "error|panic"   only lines that match (a regular expression)
   heroctl logs my-app --project p -f --grep timeout      follow, showing matching lines only
 
-The platform keeps the recent output of the running instance, not a history:
-what a stopped or replaced instance logged is gone.`,
+Without --since/--until you get the output of the running instance. With either
+of them you get the history, which survives restarts, crashes and deletes and is
+kept for 30 days:
+
+  heroctl logs my-app --project p --since 2h                  the last two hours, all runs
+  heroctl logs my-app --project p --since 2d --until 1d       yesterday
+  heroctl logs my-app --project p --since 2026-11-16T02:00:00Z --grep panic
+
+Times are RFC 3339 timestamps or a time ago (90m, 6h, 2d). --tail N keeps the
+newest N lines of the window; without it at most 5000 are returned.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			re, err := compileGrep(grep)
@@ -43,6 +53,12 @@ what a stopped or replaced instance logged is gone.`,
 			proj, err := resolveProject(cmd.Context(), deps, project)
 			if err != nil {
 				return err
+			}
+			if since != "" || until != "" {
+				if follow {
+					return fmt.Errorf("--since/--until read the history and cannot be combined with --follow")
+				}
+				return printLogHistory(cmd, deps, proj.ID, args[0], since, until, grep, tail)
 			}
 			body, err := deps.Client.StreamLogs(cmd.Context(), proj.ID, args[0], follow)
 			if err != nil {
@@ -69,6 +85,8 @@ what a stopped or replaced instance logged is gone.`,
 	_ = cmd.MarkFlagRequired("project")
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Follow log output")
 	cmd.Flags().IntVar(&tail, "tail", 0, "Show only the last N lines (not with --follow)")
+	cmd.Flags().StringVar(&since, "since", "", "Show the history from here: a timestamp or a time ago (90m, 6h, 2d)")
+	cmd.Flags().StringVar(&until, "until", "", "Show the history up to here (default now)")
 	cmd.Flags().StringVar(&grep, "grep", "", "Show only lines that match this regular expression")
 	return cmd
 }
@@ -114,6 +132,27 @@ func filterLogs(r io.Reader, w io.Writer, tail int, re *regexp.Regexp) error {
 		if _, err := io.WriteString(w, l); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// printLogHistory prints the history of an app, oldest line first. The search
+// runs on the server, so it only costs what it matches.
+func printLogHistory(cmd *cobra.Command, deps *Deps, projectID, app, since, until, grep string, tail int) error {
+	h, err := deps.Client.GetLogHistory(cmd.Context(), projectID, app, since, until, grep, tail)
+	if err != nil {
+		return fmt.Errorf("log history: %w", err)
+	}
+	out := cmd.OutOrStdout()
+	for _, l := range h.Lines {
+		if _, err := fmt.Fprintf(out, "%s  %s\n", l.Time.Format("2006-01-02 15:04:05"), strings.TrimRight(l.Text, "\r\n")); err != nil {
+			return err
+		}
+	}
+	if len(h.Lines) == 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "no log lines between %s and %s\n", h.From.Format(time.RFC3339), h.To.Format(time.RFC3339))
+	} else if h.Truncated {
+		fmt.Fprintln(cmd.ErrOrStderr(), "more lines exist in this window: narrow it with --since/--until or --grep")
 	}
 	return nil
 }

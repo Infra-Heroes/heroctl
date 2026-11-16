@@ -827,6 +827,48 @@ func (c *Client) StreamLogs(ctx context.Context, projectID, appName string, foll
 	return resp.Body, nil
 }
 
+// LogLine is one line of an app's log history.
+type LogLine struct {
+	Time   time.Time `json:"time"`
+	Stream string    `json:"stream"`
+	Alloc  string    `json:"alloc"`
+	Text   string    `json:"line"`
+}
+
+// LogHistory is the answer of the log-history endpoint.
+type LogHistory struct {
+	From      time.Time `json:"from"`
+	To        time.Time `json:"to"`
+	Lines     []LogLine `json:"lines"`
+	Runs      int       `json:"runs"`
+	Truncated bool      `json:"truncated"`
+}
+
+// GetLogHistory reads what an app logged in the past, across restarts. since and
+// until are RFC 3339 timestamps or a time ago ("90m", "2d"); search is a regular
+// expression; limit 0 leaves the default to the server.
+func (c *Client) GetLogHistory(ctx context.Context, projectID, appName, since, until, search string, limit int) (*LogHistory, error) {
+	q := url.Values{}
+	if since != "" {
+		q.Set("since", since)
+	}
+	if until != "" {
+		q.Set("until", until)
+	}
+	if search != "" {
+		q.Set("q", search)
+	}
+	if limit > 0 {
+		q.Set("limit", strconv.Itoa(limit))
+	}
+	path := fmt.Sprintf("/api/v1/projects/%s/deployments/%s/logs/history?%s", projectID, url.PathEscape(appName), q.Encode())
+	var out LogHistory
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {
 	if err := c.ensureToken(ctx); err != nil {
 		return err

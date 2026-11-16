@@ -193,9 +193,13 @@ heroctl logs my-app --project my-project -f
 heroctl logs my-app --project my-project --tail 50
 heroctl logs my-app --project my-project --grep "error|panic"
 heroctl logs my-app --project my-project -f --grep timeout
+
+# History: survives restarts, crashes and deletes (kept 30 days)
+heroctl logs my-app --project my-project --since 2h
+heroctl logs my-app --project my-project --since 2d --until 1d --grep "panic"
 ```
 
-The platform keeps the recent output of the running instance, not a history: what a stopped or replaced instance logged is gone.
+Without `--since`/`--until` you get the running instance's output. With either you get the history of all runs, oldest line first, at most 5000 lines (`--tail N` keeps the newest N). Times are RFC 3339 timestamps or a time ago (`90m`, `6h`, `2d`). `--follow` only works on the live output.
 
 ### 3. Custom Domain (CNAME Setup)
 
