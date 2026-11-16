@@ -235,6 +235,30 @@ heroctl logs queue-worker --project my-project --follow
 
 A worker has no address, no health check and no `port` or `health_path`; it counts as started once it has been running for a few seconds. It is never public and cannot `scale_to_zero` (nothing would ever start it again), and `heroctl validate` refuses `custom_domains` and the health settings on it. If the process exits or crashes, the platform restarts it.
 
+### Scheduled jobs
+
+Run a command of your app on a schedule: a nightly cleanup, a report every 15 minutes. A job is your app's image started with another command; it costs nothing between runs and is billed for the time a run takes.
+
+```toml
+[[jobs]]
+name = "cleanup"
+schedule = "0 3 * * *"                  # minute hour day month weekday, in UTC
+command = "python cleanup.py"
+timezone = "Europe/Berlin"              # optional, default UTC
+timeout = "30m"                         # optional, default 1h, at most 24h
+memory_mb = 1024                        # optional, default: the app's
+```
+
+```bash
+heroctl deploy --project my-project               # creates the jobs next to the app
+heroctl jobs list --project my-project
+heroctl jobs run shop-cleanup --project my-project    # a run now, outside the schedule
+heroctl jobs runs shop-cleanup --project my-project   # newest runs: start, duration, exit code
+heroctl logs shop-cleanup --project my-project --since 2h
+```
+
+Each job is a deployment of its own, named `<app>-<job>`. The command goes through `sh -c`, so `cd x && ./run | tee log` works; the job gets the app's environment and secrets. Runs never overlap (a tick is skipped while the last run is still going), a failed run is not retried, and a run that exceeds its `timeout` is stopped. A job removed from `hero.toml` is removed by the next deploy. A preview (`--preview`) does not run the app's jobs.
+
 ### 3. Custom Domain (CNAME Setup)
 
 Run workloads under your own domain name by completing these two steps:

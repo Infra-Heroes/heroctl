@@ -1113,3 +1113,30 @@ func (c *Client) RollbackDeployment(ctx context.Context, projectID, app, revisio
 	var out RollbackResult
 	return &out, c.do(ctx, http.MethodPost, revisionsPath(projectID, app)+"/"+revisionID+"/rollback", nil, &out)
 }
+
+// JobRun is one run of a scheduled job.
+type JobRun struct {
+	Run      string     `json:"run"`
+	Started  time.Time  `json:"started"`
+	Ended    *time.Time `json:"ended,omitempty"`
+	Seconds  *int64     `json:"seconds,omitempty"`
+	ExitCode *int       `json:"exit_code,omitempty"`
+}
+
+// RunJob starts a run of a scheduled job now, outside its schedule.
+func (c *Client) RunJob(ctx context.Context, projectID, app string) error {
+	return c.do(ctx, http.MethodPost,
+		"/api/v1/projects/"+projectID+"/deployments/"+url.PathEscape(app)+"/run", nil, nil)
+}
+
+// ListJobRuns returns the newest runs of a scheduled job, newest first.
+func (c *Client) ListJobRuns(ctx context.Context, projectID, app string, limit int) ([]JobRun, error) {
+	var out struct {
+		Runs []JobRun `json:"runs"`
+	}
+	path := fmt.Sprintf("/api/v1/projects/%s/deployments/%s/runs?limit=%d", projectID, url.PathEscape(app), limit)
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Runs, nil
+}

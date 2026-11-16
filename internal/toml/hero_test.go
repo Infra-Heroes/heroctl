@@ -277,3 +277,49 @@ func TestParse_WithoutWorkerHealthPathIsStillRequired(t *testing.T) {
 		t.Error("an ordinary app must still name its health_path")
 	}
 }
+
+const jobsApp = "[app]\nname = \"shop\"\n[deploy]\nhealth_path = \"/\"\n"
+
+func TestParse_Jobs(t *testing.T) {
+	cfg, err := Parse(strings.NewReader(jobsApp + `
+[[jobs]]
+name = "cleanup"
+schedule = "0 3 * * *"
+command = "python cleanup.py"
+timezone = "Europe/Berlin"
+timeout = "30m"
+memory_mb = 1024
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Jobs) != 1 || cfg.Jobs[0].AppName("shop") != "shop-cleanup" || cfg.Jobs[0].MemoryMB != 1024 {
+		t.Errorf("jobs = %+v", cfg.Jobs)
+	}
+	if len(cfg.Warnings) != 0 {
+		t.Errorf("jobs is a known key: %v", cfg.Warnings)
+	}
+}
+
+func TestParse_JobsRefuseWhatWouldFailLate(t *testing.T) {
+	ok := "name = \"a\"\nschedule = \"0 3 * * *\"\ncommand = \"true\"\n"
+	for name, jobs := range map[string]string{
+		"no name":      "[[jobs]]\nschedule = \"0 3 * * *\"\ncommand = \"true\"\n",
+		"bad name":     "[[jobs]]\nname = \"A b\"\nschedule = \"0 3 * * *\"\ncommand = \"true\"\n",
+		"twice":        "[[jobs]]\n" + ok + "[[jobs]]\n" + ok,
+		"six fields":   "[[jobs]]\nname = \"a\"\nschedule = \"* * * * * *\"\ncommand = \"true\"\n",
+		"no schedule":  "[[jobs]]\nname = \"a\"\ncommand = \"true\"\n",
+		"no command":   "[[jobs]]\nname = \"a\"\nschedule = \"0 3 * * *\"\n",
+		"timeout junk": "[[jobs]]\n" + ok + "timeout = \"soon\"\n",
+		"timeout big":  "[[jobs]]\n" + ok + "timeout = \"48h\"\n",
+		"long name":    "[[jobs]]\nname = \"" + strings.Repeat("a", 32) + "\"\nschedule = \"0 3 * * *\"\ncommand = \"true\"\n",
+	} {
+		app := jobsApp
+		if name == "long name" {
+			app = "[app]\nname = \"" + strings.Repeat("b", 40) + "\"\n[deploy]\nhealth_path = \"/\"\n"
+		}
+		if _, err := Parse(strings.NewReader(app + jobs)); err == nil {
+			t.Errorf("%s must be refused", name)
+		}
+	}
+}

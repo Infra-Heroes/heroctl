@@ -324,7 +324,7 @@ real one: for the duration of a pull request. See "heroctl preview --help".
 						if deployment.Hostname != "" {
 							fmt.Printf("URL: https://%s\n", deployment.Hostname)
 						}
-						return nil
+						return deployJobs(ctx, deps, project, heroCfg, image)
 					}
 				}
 				if polls%5 == 4 {
