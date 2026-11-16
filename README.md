@@ -210,7 +210,7 @@ heroctl deploy --project my-project --preview pr-12     # deploys my-app-pr-12
 heroctl preview delete pr-12 --project my-project       # removes it and the databases it created
 ```
 
-A preview never touches the real app: it gets no custom domains and no volumes (a volume belongs to one deployment), its `[[databases]]` are its own, empty ones, and it scales to zero so it only runs while somebody opens it. `preview delete` is safe to run twice. The GitHub Action does both for you with `preview: true`, see [deploy-action](https://github.com/Infra-Heroes/deploy-action).
+A preview never touches the real app: it gets no custom domains and no volumes (a volume belongs to one deployment), its `[[databases]]` are its own, empty ones, and it scales to zero so it only runs while somebody opens it. `preview delete` is safe to run twice. It removes the preview app first; a deploy-scoped token (what CI uses) may delete the preview app but not its databases, so with `[[databases]]` it deletes the app, says which database is left and exits non-zero until a token with scope `all` runs `heroctl db destroy`. The GitHub Action does both for you with `preview: true`, see [deploy-action](https://github.com/Infra-Heroes/deploy-action).
 
 ### Workers (background processes)
 

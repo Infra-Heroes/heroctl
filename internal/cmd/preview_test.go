@@ -47,6 +47,9 @@ func TestApplyPreview_RenamesAndLeavesOutWhatBelongsToTheRealApp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if cfg.Labels["hero-preview"] != "true" {
+		t.Errorf("a preview carries hero-preview=true (what a deploy token may delete): %v", cfg.Labels)
+	}
 	if cfg.App.Name != "shop-pr-12" {
 		t.Errorf("name = %s", cfg.App.Name)
 	}
@@ -171,5 +174,39 @@ func TestApplyPreview_AWorkerKeepsRunningInsteadOfScalingToZero(t *testing.T) {
 	}
 	if cfg.Deploy.ScaleToZero {
 		t.Error("nothing would ever start a worker that scaled to zero")
+	}
+}
+
+// A deploy-scoped token may delete the preview app and nothing else. The app must go
+// even when the platform refuses its database, and the command must say that the
+// database is still there, because it still costs.
+func TestPreviewDelete_DeletesTheAppFirstAndReportsADatabaseItCouldNotDelete(t *testing.T) {
+	var calls []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := r.Method + " " + r.URL.Path
+		calls = append(calls, key)
+		switch {
+		case key == "GET /api/v1/projects":
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": "proj-1", "name": "app"}})
+		case key == "GET /api/v1/projects/proj-1/deployments":
+			_ = json.NewEncoder(w).Encode([]map[string]any{
+				{"app_name": "shop-pr-7", "status": "running"},
+				{"app_name": "shop-pr-7-db", "labels": map[string]string{"hero-managed-db": "postgres", "hero-db-for": "shop-pr-7"}},
+			})
+		case key == "DELETE /api/v1/projects/proj-1/deployments/shop-pr-7":
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodDelete:
+			http.Error(w, `{"error":"token scope does not allow this action"}`, http.StatusForbidden)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	_, err := runPreviewDelete(t, srv, "pr-7")
+	if err == nil || !strings.Contains(err.Error(), "shop-pr-7-db") || !strings.Contains(err.Error(), "scope all") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(calls) < 3 || calls[2] != "DELETE /api/v1/projects/proj-1/deployments/shop-pr-7" {
+		t.Errorf("the app must be deleted before its databases: %v", calls)
 	}
 }
