@@ -126,6 +126,25 @@ steps:
   # A release can only attach to a tag that already exists on Codeberg. The
   # mirror is sync_on_commit and lint, gosec, test and build all run before
   # this, so the tag has long since arrived by the time the step starts.
+  # Codeberg gives the account a fixed amount of release files and packages. A release
+  # that does not fit is created without its binaries, so the oldest stable versions
+  # are removed first and the newest four (this one included) are kept. See
+  # scripts/prune-codeberg.sh. It never fails the pipeline: it runs before the upload
+  # for exactly the case where the upload would not fit.
+  prune-codeberg:
+    image: alpine:3.20
+    failure: ignore
+    when:
+      event: tag
+      ref: refs/tags/v*
+    environment:
+      KEEP: "4"
+      CODEBERG_TOKEN:
+        from_secret: codeberg_token
+    commands:
+      - apk add --no-cache curl jq
+      - sh scripts/prune-codeberg.sh
+
   release-codeberg:
     image: woodpeckerci/plugin-gitea-release
     when:

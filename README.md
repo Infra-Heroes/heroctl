@@ -458,3 +458,7 @@ We use a `Makefile` for all common development tasks:
 - `make tidy`: Tidy go module dependencies.
 - `make lint`: Run `golangci-lint` (installs automatically if missing).
 - `make security`: Run `gosec` and `govulncheck` to scan for vulnerabilities.
+
+### Release housekeeping
+
+Release binaries and container images are published to Forgejo and Codeberg. Codeberg gives the account a fixed amount of space, and a release that does not fit is created without its files, so the tag pipeline first runs `scripts/prune-codeberg.sh`: it deletes the oldest stable versions there (releases and container tags, never `latest`, pre-releases or git tags) and keeps the newest four, the one being released included. A dry run shows what it would do: `DRY_RUN=1 KEEP=4 CODEBERG_TOKEN=... scripts/prune-codeberg.sh`. Pin the version `install.sh` and the deploy action use to something that is among the newest four.
