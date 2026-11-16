@@ -49,6 +49,10 @@ func applyPreview(cfg *toml.HeroConfig, name string) ([]string, error) {
 		notes = append(notes, "volumes are not attached to a preview: a volume belongs to one deployment, and the real app keeps it")
 		cfg.Volumes = nil
 	}
+	if len(cfg.Jobs) > 0 {
+		notes = append(notes, "scheduled jobs are not run by a preview: they would act on a schedule for as long as the pull request is open")
+		cfg.Jobs = nil
+	}
 	if len(cfg.Databases) > 0 {
 		notes = append(notes, "the preview gets its own, empty database(s); delete them with: heroctl preview delete "+name)
 	}

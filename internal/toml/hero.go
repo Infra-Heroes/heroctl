@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -23,6 +24,8 @@ type HeroConfig struct {
 	Volumes []VolumeConfig    `toml:"volumes"`
 	// Databases are provisioned by heroctl as private deployments of their own.
 	Databases []DatabaseConfig `toml:"databases"`
+	// Jobs run a command of the app's image on a schedule.
+	Jobs []JobConfig `toml:"jobs"`
 
 	// Warnings lists keys that were set but are not known. They are not an error
 	// (an older heroctl must still read a newer file), but a key that is silently
@@ -46,6 +49,27 @@ type DatabaseConfig struct {
 	// default is DATABASE_URL (postgres, mysql) or REDIS_URL.
 	Env string `toml:"env"`
 }
+
+// JobConfig is a scheduled run of the app's image with another command. Each job
+// becomes a deployment of its own, <app>-<name>, that costs nothing between runs.
+type JobConfig struct {
+	// Name identifies the job within the app ("cleanup", "report").
+	Name string `toml:"name"`
+	// Schedule is a five-field cron expression: minute hour day month weekday.
+	Schedule string `toml:"schedule"`
+	// Command is run through sh in place of the image's own command.
+	Command string `toml:"command"`
+	// Timezone is an IANA name such as Europe/Berlin; the default is UTC.
+	Timezone string `toml:"timezone"`
+	// Timeout stops a run that takes longer (default 1h, at most 24h).
+	Timeout string `toml:"timeout"`
+	// CPU and MemoryMB default to the app's.
+	CPU      int `toml:"cpu"`
+	MemoryMB int `toml:"memory_mb"`
+}
+
+// AppName is the name of the deployment that runs the job of app.
+func (j JobConfig) AppName(app string) string { return app + "-" + j.Name }
 
 // VersionString returns the version as written, however it was typed.
 func (d DatabaseConfig) VersionString() string {
@@ -183,6 +207,10 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 		return nil, fmt.Errorf("hero.toml: [deploy] health_check_port must be >= 0 (got %d)", cfg.Deploy.HealthCheckPort)
 	}
 
+	if err := validateJobs(cfg.App.Name, cfg.Jobs); err != nil {
+		return nil, err
+	}
+
 	// Validate volume blocks.
 	seenMounts := make(map[string]bool)
 	for i, v := range cfg.Volumes {
@@ -202,6 +230,47 @@ func Parse(r io.Reader) (*HeroConfig, error) {
 	}
 
 	return &cfg, nil
+}
+
+var jobNameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
+
+// validateJobs checks [[jobs]] as far as the file alone can tell. The server checks
+// the cron expression and the timezone for real; this catches the slips that make a
+// deploy fail late.
+func validateJobs(app string, jobs []JobConfig) error {
+	seen := map[string]bool{}
+	for i, j := range jobs {
+		where := fmt.Sprintf("hero.toml: [[jobs]][%d]", i)
+		if j.Name == "" {
+			return fmt.Errorf("%s name is required", where)
+		}
+		if !jobNameRe.MatchString(j.Name) {
+			return fmt.Errorf("%s name %q must be lowercase letters, digits and hyphens, up to 32 characters", where, j.Name)
+		}
+		if seen[j.Name] {
+			return fmt.Errorf("%s name %q is used twice", where, j.Name)
+		}
+		seen[j.Name] = true
+		if len(j.AppName(app)) > 63 {
+			return fmt.Errorf("%s name %q makes the deployment name %q longer than 63 characters", where, j.Name, j.AppName(app))
+		}
+		if n := len(strings.Fields(j.Schedule)); n != 5 {
+			return fmt.Errorf("%s schedule %q must have five fields (minute hour day month weekday), for example \"0 3 * * *\"", where, j.Schedule)
+		}
+		if strings.TrimSpace(j.Command) == "" {
+			return fmt.Errorf("%s command is required", where)
+		}
+		if j.Timeout != "" {
+			d, err := time.ParseDuration(j.Timeout)
+			if err != nil || d < time.Minute || d > 24*time.Hour {
+				return fmt.Errorf("%s timeout %q must be a duration between 1m and 24h, such as 30m", where, j.Timeout)
+			}
+		}
+		if j.CPU < 0 || j.MemoryMB < 0 {
+			return fmt.Errorf("%s cpu and memory_mb cannot be negative", where)
+		}
+	}
+	return nil
 }
 
 // makeWorker settles a [deploy] worker = true: it refuses what a worker cannot be

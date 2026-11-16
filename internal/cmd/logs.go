@@ -145,7 +145,7 @@ func printLogHistory(cmd *cobra.Command, deps *Deps, projectID, app, since, unti
 	}
 	out := cmd.OutOrStdout()
 	for _, l := range h.Lines {
-		if _, err := fmt.Fprintf(out, "%s  %s\n", l.Time.Format("2006-01-02 15:04:05"), strings.TrimRight(l.Text, "\r\n")); err != nil {
+		if _, err := fmt.Fprintf(out, "%s  %s\n", l.Time.Local().Format("2006-01-02 15:04:05"), strings.TrimRight(l.Text, "\r\n")); err != nil {
 			return err
 		}
 	}

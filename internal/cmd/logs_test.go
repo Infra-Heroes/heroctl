@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // logsTestServer serves the project lookup plus a log stream with the given body.
@@ -82,6 +83,11 @@ func TestLogsPreservesUnterminatedFinalLine(t *testing.T) {
 }
 
 func TestLogsHistoryPassesTheWindowAndPrintsLinesWithTime(t *testing.T) {
+	// The lines are shown in the reader's time zone, like "jobs runs"; the test
+	// pins it so the expected text does not depend on the machine.
+	old := time.Local
+	time.Local = time.UTC
+	t.Cleanup(func() { time.Local = old })
 	var gotQuery string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
