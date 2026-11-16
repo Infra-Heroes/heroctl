@@ -201,6 +201,16 @@ heroctl logs my-app --project my-project --since 2d --until 1d --grep "panic"
 
 Without `--since`/`--until` you get the running instance's output. With either you get the history of all runs, oldest line first, at most 5000 lines (`--tail N` keeps the newest N). Times are RFC 3339 timestamps or a time ago (`90m`, `6h`, `2d`). `--follow` only works on the live output.
 
+### Deploy from GitHub with one command
+
+```bash
+cd my-app                                   # the directory with hero.toml
+heroctl ci github --project my-project --set-secret
+git add .github && git commit -m "Deploy to Infra-Heroes" && git push
+```
+
+`heroctl ci github` writes `.github/workflows/deploy.yml` (deploys on every push to `main`, or `--branch`), and with `--preview` also `.github/workflows/preview.yml` (a preview for every pull request, removed when it closes). `--image` deploys an existing image instead of building one. With `--set-secret` it creates a deploy token and stores it as the repository secret `HERO_TOKEN` through the GitHub CLI (`gh`); the token is never printed or written to a file. Without it, the command only writes the files and prints the two commands for the secret. Existing workflow files are not overwritten without `--force`.
+
 ### Preview deployments
 
 Test a pull request on its own address before it is merged. A preview is your app deployed under another name, `<app>-<preview>`, next to the real one:
