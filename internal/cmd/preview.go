@@ -53,7 +53,10 @@ func applyPreview(cfg *toml.HeroConfig, name string) ([]string, error) {
 		notes = append(notes, "the preview gets its own, empty database(s); delete them with: heroctl preview delete "+name)
 	}
 	// A preview that nobody opens should not run: it starts on the first request.
-	cfg.Deploy.ScaleToZero = true
+	// A worker has no request to start it, so it runs for as long as the preview.
+	if !cfg.Deploy.Worker {
+		cfg.Deploy.ScaleToZero = true
+	}
 	return notes, nil
 }
 

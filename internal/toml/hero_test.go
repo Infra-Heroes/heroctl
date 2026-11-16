@@ -236,3 +236,44 @@ func TestDatabaseConfig_VersionString(t *testing.T) {
 		}
 	}
 }
+
+func TestParse_WorkerNeedsNoPortNoHealthPathAndIsPrivate(t *testing.T) {
+	cfg, err := Parse(strings.NewReader(`
+[app]
+name = "queue"
+
+[deploy]
+worker = true
+memory_mb = 256
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := cfg.Deploy
+	if !d.Worker || d.HealthCheckType != "none" || !d.Private || d.HealthPath != "/" {
+		t.Errorf("worker = %+v", d)
+	}
+	if len(cfg.Warnings) != 0 {
+		t.Errorf("worker is a known key: %v", cfg.Warnings)
+	}
+}
+
+func TestParse_WorkerRefusesWhatAWorkerCannotBe(t *testing.T) {
+	for name, extra := range map[string]struct{ app, deploy string }{
+		"scale to zero": {"", "scale_to_zero = true"},
+		"health check":  {"", `health_check_type = "tcp"`},
+		"check port":    {"", "health_check_port = 80"},
+		"domain":        {`custom_domains = ["a.example.com"]`, ""},
+	} {
+		_, err := Parse(strings.NewReader("[app]\nname = \"queue\"\n" + extra.app + "\n[deploy]\nworker = true\n" + extra.deploy + "\n"))
+		if err == nil || !strings.Contains(err.Error(), "worker") {
+			t.Errorf("%s: err = %v", name, err)
+		}
+	}
+}
+
+func TestParse_WithoutWorkerHealthPathIsStillRequired(t *testing.T) {
+	if _, err := Parse(strings.NewReader("[app]\nname = \"web\"\n[deploy]\nport = 80\n")); err == nil {
+		t.Error("an ordinary app must still name its health_path")
+	}
+}
