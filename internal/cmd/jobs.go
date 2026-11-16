@@ -108,10 +108,28 @@ func hasJobsFor(ctx context.Context, deps *Deps, projectID, app string) bool {
 	return err == nil && len(jobsOf(all, app)) > 0
 }
 
+// newestPerApp keeps one deployment per app name, the newest. Every deploy writes a
+// new revision, and the list holds all of them; a job should show, and be removed,
+// once.
+func newestPerApp(all []client.Deployment) []client.Deployment {
+	newest := map[string]client.Deployment{}
+	for _, d := range all {
+		if cur, ok := newest[d.AppName]; !ok || d.CreatedAt > cur.CreatedAt {
+			newest[d.AppName] = d
+		}
+	}
+	out := make([]client.Deployment, 0, len(newest))
+	for _, d := range newest {
+		out = append(out, d)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].AppName < out[j].AppName })
+	return out
+}
+
 // jobsOf are the scheduled jobs of app among deployments.
 func jobsOf(all []client.Deployment, app string) []client.Deployment {
 	var out []client.Deployment
-	for _, d := range all {
+	for _, d := range newestPerApp(all) {
 		if d.Labels[labelJobFor] == app && d.Labels[labelJobSchedule] != "" {
 			out = append(out, d)
 		}
@@ -122,12 +140,11 @@ func jobsOf(all []client.Deployment, app string) []client.Deployment {
 // scheduledJobs are the scheduled jobs of every app in the list.
 func scheduledJobs(all []client.Deployment) []client.Deployment {
 	var out []client.Deployment
-	for _, d := range all {
+	for _, d := range newestPerApp(all) {
 		if d.Labels[labelJobSchedule] != "" {
 			out = append(out, d)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].AppName < out[j].AppName })
 	return out
 }
 

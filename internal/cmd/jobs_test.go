@@ -213,3 +213,21 @@ func TestApplyPreview_DropsJobs(t *testing.T) {
 		t.Errorf("notes = %v", notes)
 	}
 }
+
+// Every deploy writes a new revision and the list holds them all: a job must show
+// once, as its newest revision, and be removed once.
+func TestJobsOf_KeepsTheNewestRevisionOfEachJobOnly(t *testing.T) {
+	lbl := map[string]string{"hero-job-for": "shop", "hero-job-schedule": "0 3 * * *", "hero-job-name": "cleanup"}
+	all := []client.Deployment{
+		{AppName: "shop-cleanup", Status: "stopped", CreatedAt: "2026-11-16T10:00:00Z", Labels: lbl},
+		{AppName: "shop-cleanup", Status: "running", CreatedAt: "2026-11-16T12:00:00Z", Labels: lbl},
+		{AppName: "shop-cleanup", Status: "stopped", CreatedAt: "2026-11-16T11:00:00Z", Labels: lbl},
+	}
+	jobs := jobsOf(all, "shop")
+	if len(jobs) != 1 || jobs[0].Status != "running" {
+		t.Errorf("jobs = %+v", jobs)
+	}
+	if got := scheduledJobs(all); len(got) != 1 {
+		t.Errorf("scheduledJobs = %d rows", len(got))
+	}
+}
