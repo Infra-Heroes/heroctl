@@ -725,6 +725,9 @@ type InvitationCreated struct {
 	Email     string `json:"email"`
 	OrgRole   string `json:"org_role"`
 	ExpiresAt string `json:"expires_at"`
+	// EmailSent is true when hero-api mailed the invitation to the invited address. An older
+	// hero-api does not say, which reads as false: the token is then passed on by hand.
+	EmailSent bool `json:"email_sent"`
 }
 
 // ListOrgMembers returns all members of the authenticated org.
