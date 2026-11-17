@@ -87,7 +87,7 @@ func membersInviteCmd(deps *Deps) *cobra.Command {
 			fmt.Printf("  Email:      %s\n", inv.Email)
 			fmt.Printf("  Role:       %s\n", inv.OrgRole)
 			fmt.Printf("  Expires at: %s\n", inv.ExpiresAt)
-			fmt.Printf("\nShare this token with %s. They should run:\n  heroctl accept-invite %s\n", inv.Email, inv.Token)
+			fmt.Print(invitationNextSteps(inv))
 			return nil
 		},
 	}
@@ -192,4 +192,13 @@ func acceptInviteCmd(deps *Deps) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// invitationNextSteps says what happens next: the invitation was mailed, or the token has to
+// be passed on by hand (no mail server, or an older hero-api that does not report it).
+func invitationNextSteps(inv *client.InvitationCreated) string {
+	if inv.EmailSent {
+		return fmt.Sprintf("\nThe invitation was mailed to %s. They accept it with:\n  heroctl accept-invite %s\n", inv.Email, inv.Token)
+	}
+	return fmt.Sprintf("\nNo mail was sent. Share this token with %s. They should run:\n  heroctl accept-invite %s\n", inv.Email, inv.Token)
 }
