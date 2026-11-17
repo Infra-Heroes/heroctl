@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -29,7 +31,7 @@ func secretsSetCmd(deps *Deps) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "set <key>",
-		Short: "Set a secret (value is read securely from stdin)",
+		Short: "Set a secret (asked for hidden on a terminal, or read from a pipe)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -40,17 +42,12 @@ func secretsSetCmd(deps *Deps) *cobra.Command {
 				return err
 			}
 
-			_, _ = fmt.Fprintf(os.Stderr, "Enter value for %q (input hidden): ", key)
-			valueBytes, err := term.ReadPassword(int(os.Stdin.Fd())) // #nosec G115 -- a file descriptor always fits in an int
-			_, _ = fmt.Fprintln(os.Stderr)
+			value, err := readSecretValue(os.Stdin, cmd.InOrStdin(), key)
 			if err != nil {
-				return fmt.Errorf("read secret value: %w", err)
-			}
-			if len(valueBytes) == 0 {
-				return fmt.Errorf("secret value must not be empty")
+				return err
 			}
 
-			if err := deps.Client.SetSecret(ctx, project.ID, key, string(valueBytes)); err != nil {
+			if err := deps.Client.SetSecret(ctx, project.ID, key, value); err != nil {
 				return fmt.Errorf("set secret: %w", err)
 			}
 
@@ -134,4 +131,32 @@ func secretsDeleteCmd(deps *Deps) *cobra.Command {
 	_ = cmd.MarkFlagRequired("project")
 
 	return cmd
+}
+
+// readSecretValue reads a secret's value. On a terminal it asks, with the input hidden.
+// From a pipe or a file (a script, CI) it reads what is sent, so a secret can be set
+// without a person at the keyboard: `printf %s "$VALUE" | heroctl secrets set KEY`.
+// One trailing newline is dropped, because that is what echo and a text file add and
+// not what anybody means to store.
+func readSecretValue(stdin *os.File, in io.Reader, key string) (string, error) {
+	var value string
+	if term.IsTerminal(int(stdin.Fd())) { // #nosec G115 -- a file descriptor always fits in an int
+		_, _ = fmt.Fprintf(os.Stderr, "Enter value for %q (input hidden): ", key)
+		b, err := term.ReadPassword(int(stdin.Fd())) // #nosec G115 -- as above
+		_, _ = fmt.Fprintln(os.Stderr)
+		if err != nil {
+			return "", fmt.Errorf("read secret value: %w", err)
+		}
+		value = string(b)
+	} else {
+		b, err := io.ReadAll(io.LimitReader(in, 1<<20))
+		if err != nil {
+			return "", fmt.Errorf("read secret value: %w", err)
+		}
+		value = strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
+	}
+	if value == "" {
+		return "", fmt.Errorf("secret value must not be empty")
+	}
+	return value, nil
 }
