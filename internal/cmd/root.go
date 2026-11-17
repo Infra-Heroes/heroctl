@@ -91,6 +91,7 @@ func newRootCmd() *cobra.Command {
 		tokensCmd(&deps),
 		versionCmd(),
 		validateCmd(),
+		initCmd(),
 	)
 
 	root.PersistentFlags().StringVar(&tokenFlag, "token", "", "Authenticate using a personal access token")
@@ -106,6 +107,7 @@ var commandsWithoutAuth = map[string]bool{
 	"login":                         true,
 	"signup":                        true,
 	"validate":                      true,
+	"init":                          true,
 	"version":                       true,
 	"help":                          true,
 	"completion":                    true,
