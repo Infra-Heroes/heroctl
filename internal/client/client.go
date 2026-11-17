@@ -24,6 +24,9 @@ type Client struct {
 	httpClient   *http.Client
 	streamClient *http.Client
 	token        *auth.Token
+	// orgID is the Zitadel id of the organisation every request is for, when the
+	// signed-in person belongs to more than one. Empty means the one the token names.
+	orgID string
 }
 
 // New creates a Client with the given server URL, auth domain, and token.
@@ -815,7 +818,7 @@ func (c *Client) StreamLogs(ctx context.Context, projectID, appName string, foll
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token.AccessToken)
+	c.authorize(req)
 	resp, err := c.streamClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -887,7 +890,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token.AccessToken)
+	c.authorize(req)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -1139,4 +1142,57 @@ func (c *Client) ListJobRuns(ctx context.Context, projectID, app string, limit i
 		return nil, err
 	}
 	return out.Runs, nil
+}
+
+// OrgHeader names the organisation a request is for. The API honours it for a sign-in
+// token and only for an organisation the person is a member of; it is ignored for a
+// personal access token, which belongs to one organisation.
+const OrgHeader = "X-Hero-Org"
+
+// authorize puts the credentials, and the chosen organisation, on a request.
+func (c *Client) authorize(req *http.Request) {
+	req.Header.Set("Authorization", "Bearer "+c.token.AccessToken)
+	if c.orgID != "" {
+		req.Header.Set(OrgHeader, c.orgID)
+	}
+}
+
+// SetOrg makes every later request be for the organisation with this Zitadel id.
+func (c *Client) SetOrg(zitadelID string) { c.orgID = zitadelID }
+
+// MyOrg is an organisation the signed-in person belongs to.
+type MyOrg struct {
+	Name      string `json:"name"`
+	Role      string `json:"role"`
+	ZitadelID string `json:"zitadel_id"`
+	Current   bool   `json:"current"`
+}
+
+// MyOrgs lists the organisations the signed-in person belongs to.
+func (c *Client) MyOrgs(ctx context.Context) ([]MyOrg, error) {
+	var out struct {
+		Orgs []MyOrg `json:"orgs"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/api/v1/orgs/mine", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Orgs, nil
+}
+
+// ResolveOrg turns an organisation's name, or its Zitadel id, into the id. A name
+// must be one of the person's own organisations.
+func (c *Client) ResolveOrg(ctx context.Context, nameOrID string) (string, error) {
+	nameOrID = strings.TrimSpace(nameOrID)
+	orgs, err := c.MyOrgs(ctx)
+	if err != nil {
+		return "", fmt.Errorf("list your organisations: %w", err)
+	}
+	var names []string
+	for _, o := range orgs {
+		if o.ZitadelID == nameOrID || strings.EqualFold(o.Name, nameOrID) {
+			return o.ZitadelID, nil
+		}
+		names = append(names, o.Name)
+	}
+	return "", fmt.Errorf("you are not a member of an organisation %q (yours: %s)", nameOrID, strings.Join(names, ", "))
 }

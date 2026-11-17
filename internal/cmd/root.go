@@ -30,7 +30,7 @@ func Execute() {
 
 func newRootCmd() *cobra.Command {
 	var deps Deps
-	var tokenFlag string
+	var tokenFlag, orgFlag string
 
 	root := &cobra.Command{
 		Use:           "heroctl",
@@ -62,6 +62,19 @@ func newRootCmd() *cobra.Command {
 				serverURL = envURL
 			}
 			deps.Client = client.New(serverURL, build.AuthDomain, build.ClientID, tok)
+			if orgFlag == "" {
+				orgFlag = os.Getenv("HERO_ORG")
+			}
+			if orgFlag != "" {
+				if tokenFlag != "" {
+					return fmt.Errorf("--org / HERO_ORG chooses among the organisations of a sign-in; a personal access token belongs to one organisation")
+				}
+				id, err := deps.Client.ResolveOrg(cmd.Context(), orgFlag)
+				if err != nil {
+					return err
+				}
+				deps.Client.SetOrg(id)
+			}
 			return nil
 		},
 	}
@@ -94,6 +107,7 @@ func newRootCmd() *cobra.Command {
 	)
 
 	root.PersistentFlags().StringVar(&tokenFlag, "token", "", "Authenticate using a personal access token")
+	root.PersistentFlags().StringVar(&orgFlag, "org", "", "Organisation to act in, by name, when you belong to several (or set HERO_ORG)")
 
 	return root
 }
