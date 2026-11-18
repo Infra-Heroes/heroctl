@@ -71,6 +71,7 @@ const deployPollInterval = time.Second
 
 func deployCmd(deps *Deps) *cobra.Command {
 	var projectName, imageRef, preview, ttl string
+	var stage bool
 	var yes bool
 
 	cmd := &cobra.Command{
@@ -113,6 +114,9 @@ real one: for the duration of a pull request. See "heroctl preview --help".
 			}
 			if err := validateAppName(heroCfg.App.Name); err != nil {
 				return fmt.Errorf("hero.toml: %w", err)
+			}
+			if stage && preview != "" {
+				return fmt.Errorf("--stage and --preview do not go together: a preview is a separate app already")
 			}
 			if ttl != "" && preview == "" {
 				return fmt.Errorf("--ttl applies to a preview only (--preview NAME)")
@@ -303,9 +307,14 @@ real one: for the duration of a pull request. See "heroctl preview --help".
 				MinReplicas:     heroCfg.Deploy.MinReplicas,
 				MaxReplicas:     heroCfg.Deploy.MaxReplicas,
 				VerifyDomains:   heroCfg.App.VerifyDomains,
+				Staged:          stage,
 			})
 			if err != nil {
 				return deploymentError(err, projectName)
+			}
+			if stage {
+				printStaged(heroCfg.App.Name, projectName, deployment.NextURL)
+				return nil
 			}
 
 			if heroCfg.Deploy.Worker {
@@ -356,6 +365,7 @@ real one: for the duration of a pull request. See "heroctl preview --help".
 	}
 
 	cmd.Flags().StringVar(&projectName, "project", "", "Project name to deploy to (required)")
+	cmd.Flags().BoolVar(&stage, "stage", false, "Start the new version beside production on <app>--next.<domain>; production changes only on 'heroctl deployments promote'")
 	cmd.Flags().StringVar(&ttl, "ttl", "", "With --preview: stop the preview after this long, e.g. 72h or 7d (it keeps its data until deleted)")
 	cmd.Flags().StringVar(&preview, "preview", "", "Deploy as a preview named <app>-<name> (for example pr-12): no custom domains or volumes, own databases, scale to zero")
 	cmd.Flags().StringVar(&imageRef, "image", "", "Deploy this existing image instead of building one (no Docker needed)")
