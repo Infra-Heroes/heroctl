@@ -218,6 +218,18 @@ func newOpsServer(t *testing.T, s *opsServer) *httptest.Server {
 			_ = json.NewEncoder(w).Encode(map[string]any{"id": "x", "metric": s.bodies[key]["metric"], "threshold": s.bodies[key]["threshold"], "enabled": true})
 		case r.Method == http.MethodDelete && strings.Contains(r.URL.Path, "/alerts/"):
 			w.WriteHeader(http.StatusNoContent)
+		case key == "GET /api/v1/orgs/me/channels":
+			_ = json.NewEncoder(w).Encode(map[string]any{"channels": []map[string]any{
+				{"id": "ch-1", "name": "ops", "kind": "slack", "last_sent_at": "2026-11-18T10:00:00Z"},
+				{"id": "ch-2", "name": "hook", "kind": "webhook", "last_error": "HTTP 404"},
+			}})
+		case key == "POST /api/v1/orgs/me/channels":
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "ch-3", "name": s.bodies[key]["name"], "kind": s.bodies[key]["kind"], "signing_key": "whsec_x"})
+		case key == "POST /api/v1/orgs/me/channels/ch-1/test", key == "DELETE /api/v1/orgs/me/channels/ch-1":
+			w.WriteHeader(http.StatusNoContent)
+		case key == "POST /api/v1/orgs/me/channels/ch-2/test":
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte(`{"error":"the test message did not arrive"}`))
 		case key == "GET /api/v1/projects/proj-1/volumes":
 			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": "vol-1", "name": "data", "size_gb": s.volSize, "status": "available"}})
 		case key == "POST /api/v1/projects/proj-1/volumes/vol-1/resize":

@@ -82,6 +82,8 @@ type DeploymentAlert struct {
 	Enabled       bool    `json:"enabled"`
 	State         string  `json:"state"`
 	BreachedSince string  `json:"breached_since,omitempty"`
+	// Channels is nil when the rule goes to all of the organisation's channels.
+	Channels []string `json:"channels,omitempty"`
 }
 
 // DeploymentAlertRequest is the body for PUT .../alerts.
@@ -90,6 +92,8 @@ type DeploymentAlertRequest struct {
 	Threshold  float64 `json:"threshold"`
 	ForSeconds *int32  `json:"for_seconds,omitempty"`
 	Enabled    *bool   `json:"enabled,omitempty"`
+	// Channels: nil sends to all channels, an empty list by email only.
+	Channels *[]string `json:"channels,omitempty"`
 }
 
 func alertsPath(projectID, app string) string {
@@ -162,4 +166,46 @@ func (c *Client) ListAudit(ctx context.Context, limit, offset int) (*AuditLog, e
 		path += "?" + q.Encode()
 	}
 	return &out, c.do(ctx, http.MethodGet, path, nil, &out)
+}
+
+// NotificationChannel is a place alerts go besides email: Slack, Teams,
+// Discord or a signed webhook. Its URL is never returned.
+type NotificationChannel struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Kind       string `json:"kind"`
+	Enabled    bool   `json:"enabled"`
+	LastSentAt string `json:"last_sent_at,omitempty"`
+	LastError  string `json:"last_error,omitempty"`
+	SigningKey string `json:"signing_key,omitempty"`
+}
+
+const channelsPath = "/api/v1/orgs/me/channels"
+
+// ListNotificationChannels reads the organisation's alert channels.
+func (c *Client) ListNotificationChannels(ctx context.Context) ([]NotificationChannel, error) {
+	var out struct {
+		Channels []NotificationChannel `json:"channels"`
+	}
+	if err := c.do(ctx, http.MethodGet, channelsPath, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Channels, nil
+}
+
+// CreateNotificationChannel adds a channel; a webhook comes back with its signing key, once.
+func (c *Client) CreateNotificationChannel(ctx context.Context, name, kind, url string) (*NotificationChannel, error) {
+	var out NotificationChannel
+	body := map[string]string{"name": name, "kind": kind, "url": url}
+	return &out, c.do(ctx, http.MethodPost, channelsPath, body, &out)
+}
+
+// TestNotificationChannel sends a test message to a channel.
+func (c *Client) TestNotificationChannel(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodPost, channelsPath+"/"+id+"/test", nil, nil)
+}
+
+// DeleteNotificationChannel removes a channel.
+func (c *Client) DeleteNotificationChannel(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, channelsPath+"/"+id, nil, nil)
 }
