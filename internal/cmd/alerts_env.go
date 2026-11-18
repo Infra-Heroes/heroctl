@@ -27,10 +27,15 @@ a threshold for a while, or when the deployment has no healthy instance.
   heroctl deployments alerts set my-app --project my-project --metric cpu_percent --threshold 80 --for 300
   heroctl deployments alerts set my-app --project my-project --metric memory_bytes --threshold 400
   heroctl deployments alerts set my-app --project my-project --metric unavailable
+  heroctl deployments alerts set my-app --project my-project --metric unavailable --channel ops
   heroctl deployments alerts delete my-app <id> --project my-project
 
 Metrics: cpu_percent (a percentage), memory_bytes (give the threshold in
-megabytes), unavailable (no healthy instance; no threshold).`,
+megabytes), unavailable (no healthy instance; no threshold).
+
+Alerts are mailed to owners and admins and posted to all alert channels of the
+organisation (heroctl notifications). --channel limits a rule to the named
+channels; --channel none sends it by email only.`,
 	}
 	cmd.AddCommand(alertsListCmd(deps), alertsSetCmd(deps), alertsDeleteCmd(deps))
 	return cmd
@@ -94,6 +99,7 @@ func alertsSetCmd(deps *Deps) *cobra.Command {
 	var threshold float64
 	var forSeconds int
 	var off bool
+	var channelNames []string
 	cmd := &cobra.Command{
 		Use:   "set <app>",
 		Short: "Create or change the alert for one metric",
@@ -104,6 +110,13 @@ func alertsSetCmd(deps *Deps) *cobra.Command {
 				forSeconds, cmd.Flags().Changed("for"), off, cmd.Flags().Changed("off"))
 			if err != nil {
 				return err
+			}
+			if cmd.Flags().Changed("channel") {
+				ids, err := channelIDs(ctx, deps, channelNames)
+				if err != nil {
+					return err
+				}
+				req.Channels = &ids
 			}
 			project, err := resolveProject(ctx, deps, projectName)
 			if err != nil {
@@ -128,6 +141,7 @@ func alertsSetCmd(deps *Deps) *cobra.Command {
 	cmd.Flags().Float64Var(&threshold, "threshold", 0, "cpu_percent: 1-100; memory_bytes: megabytes")
 	cmd.Flags().IntVar(&forSeconds, "for", 0, "Seconds the value must stay past the threshold before you are notified")
 	cmd.Flags().BoolVar(&off, "off", false, "Switch the alert off, keeping it")
+	cmd.Flags().StringSliceVar(&channelNames, "channel", nil, "Send only to these alert channels (repeatable); none: email only")
 	return cmd
 }
 
