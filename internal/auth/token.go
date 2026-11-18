@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/Infra-Heroes/heroctl/internal/workspace"
 )
 
 // Token holds the OAuth2 tokens persisted to disk.
@@ -23,12 +25,15 @@ func (t *Token) IsExpired() bool {
 	return time.Now().After(t.Expiry.Add(-30 * time.Second))
 }
 
+// activeWorkspace is the workspace whose login Load and Save use; set once by
+// the root command. Empty is the default workspace.
+var activeWorkspace string
+
+// UseWorkspace makes Load and Save read and write that workspace's token.
+func UseWorkspace(name string) { activeWorkspace = name }
+
 func tokenPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve home directory: %w", err)
-	}
-	return filepath.Join(home, ".config", "heroctl", "token.json"), nil
+	return workspace.TokenFile(activeWorkspace)
 }
 
 // Load reads the token file.  Returns an error if the file is missing or
