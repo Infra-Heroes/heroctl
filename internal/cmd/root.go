@@ -11,6 +11,7 @@ import (
 	"github.com/Infra-Heroes/heroctl/internal/auth"
 	"github.com/Infra-Heroes/heroctl/internal/build"
 	"github.com/Infra-Heroes/heroctl/internal/client"
+	"github.com/Infra-Heroes/heroctl/internal/workspace"
 )
 
 // Deps holds the shared dependencies injected into each command via closure.
@@ -31,6 +32,7 @@ func Execute() {
 func newRootCmd() *cobra.Command {
 	var deps Deps
 	var tokenFlag string
+	var workspaceFlag string
 
 	root := &cobra.Command{
 		Use:           "heroctl",
@@ -38,12 +40,15 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := activateWorkspace(cmd, workspaceFlag)
+			if err != nil {
+				return err
+			}
 			if !needsAuth(cmd) {
 				return nil
 			}
 
 			var tok *auth.Token
-			var err error
 			if tokenFlag != "" {
 				tok = &auth.Token{
 					AccessToken: tokenFlag,
@@ -58,6 +63,9 @@ func newRootCmd() *cobra.Command {
 			}
 			deps.Token = tok
 			serverURL := build.ServerURL
+			if ws.Server != "" {
+				serverURL = ws.Server
+			}
 			if envURL := os.Getenv("HERO_API_URL"); envURL != "" {
 				serverURL = envURL
 			}
@@ -92,9 +100,11 @@ func newRootCmd() *cobra.Command {
 		versionCmd(),
 		validateCmd(),
 		initCmd(),
+		workspaceCmd(),
 	)
 
 	root.PersistentFlags().StringVar(&tokenFlag, "token", "", "Authenticate using a personal access token")
+	root.PersistentFlags().StringVar(&workspaceFlag, "workspace", "", "Workspace to use for this command (default: HERO_WORKSPACE, then the active one)")
 
 	return root
 }
@@ -111,6 +121,7 @@ var commandsWithoutAuth = map[string]bool{
 	"version":                       true,
 	"help":                          true,
 	"completion":                    true,
+	"workspace":                     true,
 	cobra.ShellCompRequestCmd:       true,
 	cobra.ShellCompNoDescRequestCmd: true,
 }
@@ -127,4 +138,38 @@ func needsAuth(cmd *cobra.Command) bool {
 		}
 	}
 	return true
+}
+
+// activateWorkspace picks the workspace for this command, points the token
+// store at its login and fills --project from it when the command has that flag
+// and it was not given.
+func activateWorkspace(cmd *cobra.Command, flag string) (workspace.Workspace, error) {
+	// The workspace commands manage the choice themselves; a stale one must not
+	// stop somebody from fixing it.
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "workspace" {
+			return workspace.Workspace{}, nil
+		}
+	}
+	explicit := flag
+	if explicit == "" {
+		explicit = os.Getenv("HERO_WORKSPACE")
+	}
+	f, err := workspace.Load()
+	if err != nil {
+		return workspace.Workspace{}, err
+	}
+	name, ws, err := f.Active(explicit)
+	if err != nil {
+		return workspace.Workspace{}, err
+	}
+	auth.UseWorkspace(name)
+	if ws.Project != "" {
+		if pf := cmd.Flags().Lookup("project"); pf != nil && !pf.Changed {
+			if err := pf.Value.Set(ws.Project); err != nil {
+				return workspace.Workspace{}, err
+			}
+		}
+	}
+	return ws, nil
 }

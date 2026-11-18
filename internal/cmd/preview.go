@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -18,6 +21,32 @@ import (
 
 // labelPreview marks a deployment as the preview of a pull request.
 const labelPreview = "hero-preview"
+
+// labelExpiresAt is when hero-api stops a preview, in Unix seconds.
+const labelExpiresAt = "hero-expires-at"
+
+// maxPreviewTTL keeps a typo from making a preview permanent in all but name.
+const maxPreviewTTL = 90 * 24 * time.Hour
+
+// previewExpiry turns "72h", "90m" or "7d" into the moment the preview stops.
+func previewExpiry(ttl string, now time.Time) (time.Time, error) {
+	var d time.Duration
+	var err error
+	if strings.HasSuffix(ttl, "d") {
+		var days int
+		days, err = strconv.Atoi(strings.TrimSuffix(ttl, "d"))
+		d = time.Duration(days) * 24 * time.Hour
+	} else {
+		d, err = time.ParseDuration(ttl)
+	}
+	if err != nil || d <= 0 {
+		return time.Time{}, fmt.Errorf("--ttl %q is not a duration: use for example 90m, 72h or 7d", ttl)
+	}
+	if d < 10*time.Minute || d > maxPreviewTTL {
+		return time.Time{}, fmt.Errorf("--ttl must be between 10m and 90d")
+	}
+	return now.Add(d), nil
+}
 
 var previewNameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
 

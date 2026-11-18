@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Infra-Heroes/heroctl/internal/toml"
 )
@@ -208,5 +209,20 @@ func TestPreviewDelete_DeletesTheAppFirstAndReportsADatabaseItCouldNotDelete(t *
 	}
 	if len(calls) < 3 || calls[2] != "DELETE /api/v1/projects/proj-1/deployments/shop-pr-7" {
 		t.Errorf("the app must be deleted before its databases: %v", calls)
+	}
+}
+
+func TestPreviewExpiry(t *testing.T) {
+	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+	for in, want := range map[string]time.Duration{"72h": 72 * time.Hour, "7d": 7 * 24 * time.Hour, "90m": 90 * time.Minute} {
+		got, err := previewExpiry(in, now)
+		if err != nil || got.Sub(now) != want {
+			t.Errorf("%s: %v %v", in, got, err)
+		}
+	}
+	for _, bad := range []string{"soon", "0h", "-1h", "5m", "91d", "xd"} {
+		if _, err := previewExpiry(bad, now); err == nil {
+			t.Errorf("%q should be refused", bad)
+		}
 	}
 }
