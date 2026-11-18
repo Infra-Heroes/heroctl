@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,7 +70,7 @@ const deployTimeout = 5 * time.Minute
 const deployPollInterval = time.Second
 
 func deployCmd(deps *Deps) *cobra.Command {
-	var projectName, imageRef, preview string
+	var projectName, imageRef, preview, ttl string
 	var yes bool
 
 	cmd := &cobra.Command{
@@ -113,10 +114,21 @@ real one: for the duration of a pull request. See "heroctl preview --help".
 			if err := validateAppName(heroCfg.App.Name); err != nil {
 				return fmt.Errorf("hero.toml: %w", err)
 			}
+			if ttl != "" && preview == "" {
+				return fmt.Errorf("--ttl applies to a preview only (--preview NAME)")
+			}
 			if preview != "" {
 				notes, err := applyPreview(heroCfg, preview)
 				if err != nil {
 					return err
+				}
+				if ttl != "" {
+					until, err := previewExpiry(ttl, time.Now())
+					if err != nil {
+						return err
+					}
+					heroCfg.Labels[labelExpiresAt] = strconv.FormatInt(until.Unix(), 10)
+					fmt.Fprintf(os.Stderr, "Preview: stops automatically at %s\n", until.Local().Format("2006-01-02 15:04"))
 				}
 				for _, n := range notes {
 					fmt.Fprintf(os.Stderr, "Preview: %s\n", n)
@@ -344,6 +356,7 @@ real one: for the duration of a pull request. See "heroctl preview --help".
 	}
 
 	cmd.Flags().StringVar(&projectName, "project", "", "Project name to deploy to (required)")
+	cmd.Flags().StringVar(&ttl, "ttl", "", "With --preview: stop the preview after this long, e.g. 72h or 7d (it keeps its data until deleted)")
 	cmd.Flags().StringVar(&preview, "preview", "", "Deploy as a preview named <app>-<name> (for example pr-12): no custom domains or volumes, own databases, scale to zero")
 	cmd.Flags().StringVar(&imageRef, "image", "", "Deploy this existing image instead of building one (no Docker needed)")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt (for CI/non-interactive use)")
