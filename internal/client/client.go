@@ -182,16 +182,18 @@ type Deployment struct {
 
 // DeploymentCreated is the response from POST /api/v1/projects/{id}/deployments.
 type DeploymentCreated struct {
-	ID          string            `json:"id"`
-	ProjectID   string            `json:"project_id"`
-	AppName     string            `json:"app_name"`
-	Image       string            `json:"image"`
-	Status      string            `json:"status"`
-	NomadJobID  string            `json:"nomad_job_id"`
-	CPU         int64             `json:"cpu"`
-	MemoryMB    int64             `json:"memory_mb"`
-	Port        int64             `json:"port"`
-	Hostname    string            `json:"hostname"`
+	ID         string `json:"id"`
+	ProjectID  string `json:"project_id"`
+	AppName    string `json:"app_name"`
+	Image      string `json:"image"`
+	Status     string `json:"status"`
+	NomadJobID string `json:"nomad_job_id"`
+	CPU        int64  `json:"cpu"`
+	MemoryMB   int64  `json:"memory_mb"`
+	Port       int64  `json:"port"`
+	Hostname   string `json:"hostname"`
+	// NextURL is set for a staged deploy: where the waiting version answers.
+	NextURL     string            `json:"next_url,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
 	MinReplicas int64             `json:"min_replicas"`
 	MaxReplicas int64             `json:"max_replicas"`
@@ -224,6 +226,9 @@ type CreateDeploymentRequest struct {
 	// VerifyDomains asks hero-api to check the TXT records of the custom domains
 	// first. Omitted when false, so the request is the one older servers expect.
 	VerifyDomains bool `json:"verify_domains,omitempty"`
+	// Staged starts the new version beside production on <app>--next.<domain>
+	// instead of replacing it. Omitted when false.
+	Staged bool `json:"staged,omitempty"`
 }
 
 // DeploymentStatus is the response from GET /api/v1/projects/{id}/deployments/{id}/status.
@@ -453,6 +458,28 @@ func (c *Client) StartDeployment(ctx context.Context, projectID, appName string)
 	return &out, c.do(ctx, http.MethodPost,
 		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/start",
 		nil, &out)
+}
+
+// StagedDeployment is a version waiting beside production.
+type StagedDeployment struct {
+	ID        string `json:"id"`
+	Image     string `json:"image"`
+	LiveImage string `json:"live_image"`
+	NextURL   string `json:"next_url"`
+	Since     string `json:"since"`
+}
+
+// GetStagedDeployment returns the version waiting beside production.
+func (c *Client) GetStagedDeployment(ctx context.Context, projectID, appName string) (*StagedDeployment, error) {
+	var out StagedDeployment
+	return &out, c.do(ctx, http.MethodGet,
+		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/staged", nil, &out)
+}
+
+// DecideStagedDeployment promotes ("promote") or discards ("discard") it.
+func (c *Client) DecideStagedDeployment(ctx context.Context, projectID, appName, decision string) error {
+	return c.do(ctx, http.MethodPost,
+		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/"+decision, nil, nil)
 }
 
 // RestartDeployment stops a running deployment and immediately re-submits it.
