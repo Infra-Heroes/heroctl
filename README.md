@@ -32,7 +32,7 @@ Install the latest release with the install script:
 curl -sL https://infra-heroes.de/install.sh | bash
 ```
 
-*(For other platforms, or to pick a version, download the binary directly from the [Releases](https://codeberg.org/InfraHeroes/heroctl/releases) page on Codeberg).*
+*(For other platforms, or to pick a version, download the binary directly from [infra-heroes.de/downloads/heroctl](https://infra-heroes.de/downloads/heroctl/)).*
 
 ---
 
@@ -471,4 +471,4 @@ We use a `Makefile` for all common development tasks:
 
 ### Release housekeeping
 
-Release binaries and container images are published to Forgejo and Codeberg. Codeberg gives the account a fixed amount of space, and a release that does not fit is created without its files, so the tag pipeline first runs `scripts/prune-codeberg.sh`: it deletes the oldest stable versions there (releases and container tags, never `latest`, pre-releases or git tags) and keeps the newest four, the one being released included. A dry run shows what it would do: `DRY_RUN=1 KEEP=4 CODEBERG_TOKEN=... scripts/prune-codeberg.sh`. Pin the version `install.sh` and the deploy action use to something that is among the newest four.
+Release binaries and container images are published to Forgejo. The website copies the four newest releases to https://infra-heroes.de/downloads/heroctl/<tag>/ at its deploy, which is where install.sh and the GitHub deploy action download from (Codeberg no longer resolves).
