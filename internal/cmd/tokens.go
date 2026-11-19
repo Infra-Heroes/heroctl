@@ -6,6 +6,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Infra-Heroes/heroctl/internal/client"
 )
 
 func tokensCmd(deps *Deps) *cobra.Command {
@@ -26,6 +28,8 @@ func tokensCmd(deps *Deps) *cobra.Command {
 func tokensCreateCmd(deps *Deps) *cobra.Command {
 	var name string
 	var scope string
+	var expires int
+	var project string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -34,15 +38,34 @@ func tokensCreateCmd(deps *Deps) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			pat, err := deps.Client.CreatePAT(ctx, name, scope)
+			if scope != "deploy" && scope != "read" && scope != "all" {
+				return fmt.Errorf("--scope must be deploy, read or all")
+			}
+			if expires < 0 || expires > 3650 {
+				return fmt.Errorf("--expires must be between 1 and 3650 days, or 0 for no end date")
+			}
+			opts := client.PATOptions{ExpiresInDays: expires}
+			if project != "" {
+				p, err := resolveProject(ctx, deps, project)
+				if err != nil {
+					return err
+				}
+				opts.ProjectID = p.ID
+			}
+
+			pat, err := deps.Client.CreatePAT(ctx, name, scope, opts)
 			if err != nil {
 				return fmt.Errorf("create token: %w", err)
 			}
 
 			fmt.Println("Token successfully created!")
-			fmt.Printf("ID:    %s\n", pat.ID)
-			fmt.Printf("Name:  %s\n", pat.Name)
-			fmt.Printf("Scope: %s\n", pat.Scope)
+			fmt.Printf("ID:      %s\n", pat.ID)
+			fmt.Printf("Name:    %s\n", pat.Name)
+			fmt.Printf("Scope:   %s\n", pat.Scope)
+			if project != "" {
+				fmt.Printf("Project: %s (this token reaches no other project)\n", project)
+			}
+			fmt.Printf("Expires: %s\n", expiryText(pat.ExpiresAt))
 			fmt.Println("\nIMPORTANT: Copy this token now. It will not be shown again.")
 			fmt.Printf("Token: %s\n", pat.Token)
 			return nil
@@ -50,7 +73,9 @@ func tokensCreateCmd(deps *Deps) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Name of the token (required)")
-	cmd.Flags().StringVar(&scope, "scope", "deploy", "Scope of the token ('deploy' or 'all')")
+	cmd.Flags().StringVar(&scope, "scope", "deploy", "What the token may do: deploy (a pipeline), read (look, never change) or all")
+	cmd.Flags().IntVar(&expires, "expires", 0, "Days until the token stops working (0: no end date)")
+	cmd.Flags().StringVar(&project, "project", "", "Hold the token to this project; it reaches no other")
 	_ = cmd.MarkFlagRequired("name")
 
 	return cmd
@@ -74,14 +99,33 @@ func tokensListCmd(deps *Deps) *cobra.Command {
 				return nil
 			}
 
+			// Project names for the tokens held to one; best effort.
+			names := map[string]string{}
+			if projects, err := deps.Client.ListProjects(ctx); err == nil {
+				for _, p := range projects {
+					names[p.ID] = p.Name
+				}
+			}
+
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tSCOPE\tCREATED\tLAST USED")
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tSCOPE\tPROJECT\tEXPIRES\tLAST USED")
 			for _, pat := range pats {
 				lastUsed := "never"
 				if pat.LastUsedAt != "" {
 					lastUsed = pat.LastUsedAt
 				}
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", pat.ID, pat.Name, pat.Scope, pat.CreatedAt, lastUsed)
+				project := "all"
+				if pat.ProjectID != nil {
+					project = names[*pat.ProjectID]
+					if project == "" {
+						project = "(deleted)"
+					}
+				}
+				expiry := expiryText(pat.ExpiresAt)
+				if pat.Expired {
+					expiry = "EXPIRED"
+				}
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", pat.ID, pat.Name, pat.Scope, project, expiry, lastUsed)
 			}
 			return w.Flush()
 		},
@@ -109,4 +153,15 @@ func tokensDeleteCmd(deps *Deps) *cobra.Command {
 	}
 
 	return cmd
+}
+
+// expiryText: the date a token stops working, or that it does not.
+func expiryText(at *string) string {
+	if at == nil || *at == "" {
+		return "never"
+	}
+	if len(*at) >= 10 {
+		return (*at)[:10]
+	}
+	return *at
 }

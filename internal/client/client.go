@@ -533,27 +533,117 @@ func (c *Client) RegistryCredentials(ctx context.Context) (*RegistryCreds, error
 
 // PAT represents a personal access token metadata.
 type PAT struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Scope      string `json:"scope"`
-	CreatedAt  string `json:"created_at"`
-	LastUsedAt string `json:"last_used_at,omitempty"`
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	Scope      string  `json:"scope"`
+	CreatedAt  string  `json:"created_at"`
+	LastUsedAt string  `json:"last_used_at,omitempty"`
+	ExpiresAt  *string `json:"expires_at"`
+	Expired    bool    `json:"expired"`
+	ProjectID  *string `json:"project_id"`
 }
 
 // PATCreated represents a newly created PAT, containing the raw token.
 type PATCreated struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Scope     string `json:"scope"`
-	Token     string `json:"token"`
-	CreatedAt string `json:"created_at"`
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Scope     string  `json:"scope"`
+	Token     string  `json:"token"`
+	CreatedAt string  `json:"created_at"`
+	ExpiresAt *string `json:"expires_at"`
+	ProjectID *string `json:"project_id"`
+}
+
+// PATOptions narrows a new token: an end date in days (0: none) and a
+// project it is held to (empty: the whole organisation).
+type PATOptions struct {
+	ExpiresInDays int
+	ProjectID     string
 }
 
 // CreatePAT creates a new Personal Access Token.
-func (c *Client) CreatePAT(ctx context.Context, name, scope string) (*PATCreated, error) {
+func (c *Client) CreatePAT(ctx context.Context, name, scope string, opts ...PATOptions) (*PATCreated, error) {
+	body := map[string]any{"name": name, "scope": scope}
+	if len(opts) > 0 {
+		if opts[0].ExpiresInDays > 0 {
+			body["expires_in_days"] = opts[0].ExpiresInDays
+		}
+		if opts[0].ProjectID != "" {
+			body["project_id"] = opts[0].ProjectID
+		}
+	}
 	var out PATCreated
-	return &out, c.do(ctx, http.MethodPost, "/api/v1/tokens",
-		map[string]string{"name": name, "scope": scope}, &out)
+	return &out, c.do(ctx, http.MethodPost, "/api/v1/tokens", body, &out)
+}
+
+// TransferOwnership hands the organisation to another member; the caller,
+// its owner, stays on as an admin.
+func (c *Client) TransferOwnership(ctx context.Context, principalID string) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/orgs/me/owner",
+		map[string]string{"principal_id": principalID}, nil)
+}
+
+// ── Teams ─────────────────────────────────────────────────────────────────────
+
+// TeamMember is someone in a team.
+type TeamMember struct {
+	PrincipalID string `json:"principal_id"`
+	Email       string `json:"email"`
+}
+
+// TeamProject is a project a team may reach, and how.
+type TeamProject struct {
+	ProjectID   string `json:"project_id"`
+	ProjectName string `json:"project_name"`
+	Role        string `json:"role"`
+}
+
+// Team is a group of members sharing project access.
+type Team struct {
+	ID       string        `json:"id"`
+	Name     string        `json:"name"`
+	Members  []TeamMember  `json:"members"`
+	Projects []TeamProject `json:"projects"`
+}
+
+// ListTeams returns every team of the organisation.
+func (c *Client) ListTeams(ctx context.Context) ([]Team, error) {
+	var out struct {
+		Teams []Team `json:"teams"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/api/v1/teams", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Teams, nil
+}
+
+// CreateTeam makes a team.
+func (c *Client) CreateTeam(ctx context.Context, name string) (*Team, error) {
+	var out Team
+	return &out, c.do(ctx, http.MethodPost, "/api/v1/teams", map[string]string{"name": name}, &out)
+}
+
+// DeleteTeam deletes a team and the project access it gave.
+func (c *Client) DeleteTeam(ctx context.Context, teamID string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/teams/"+url.PathEscape(teamID), nil, nil)
+}
+
+// SetTeamMember puts someone into a team (in) or takes them out.
+func (c *Client) SetTeamMember(ctx context.Context, teamID, principalID string, in bool) error {
+	method := http.MethodPut
+	if !in {
+		method = http.MethodDelete
+	}
+	return c.do(ctx, method, "/api/v1/teams/"+url.PathEscape(teamID)+"/members/"+url.PathEscape(principalID), nil, nil)
+}
+
+// SetTeamProject gives a team a role on a project, or (role "") takes it away.
+func (c *Client) SetTeamProject(ctx context.Context, teamID, projectID, role string) error {
+	path := "/api/v1/projects/" + url.PathEscape(projectID) + "/teams/" + url.PathEscape(teamID)
+	if role == "" {
+		return c.do(ctx, http.MethodDelete, path, nil, nil)
+	}
+	return c.do(ctx, http.MethodPut, path, map[string]string{"role": role}, nil)
 }
 
 // ListPATs returns all Personal Access Tokens for the user.
