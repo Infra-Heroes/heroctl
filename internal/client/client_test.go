@@ -66,6 +66,17 @@ func TestEndpoints_UseTheRightMethodPathAndBody(t *testing.T) {
 		{"token create", func(c *Client) error { _, err := c.CreatePAT(ctx, "ci", "deploy"); return err }, "POST", "/api/v1/tokens", `"scope":"deploy"`},
 		{"token list", func(c *Client) error { _, err := c.ListPATs(ctx); return err }, "GET", "/api/v1/tokens", ""},
 		{"token delete", func(c *Client) error { return c.DeletePAT(ctx, "t1") }, "DELETE", "/api/v1/tokens/t1", ""},
+		{"token create held to a project", func(c *Client) error {
+			_, err := c.CreatePAT(ctx, "ci", "read", PATOptions{ExpiresInDays: 30, ProjectID: "p1"})
+			return err
+		}, "POST", "/api/v1/tokens", `"expires_in_days":30,"name":"ci","project_id":"p1","scope":"read"`},
+		{"owner transfer", func(c *Client) error { return c.TransferOwnership(ctx, "u2") }, "POST", "/api/v1/orgs/me/owner", `"principal_id":"u2"`},
+		{"team create", func(c *Client) error { _, err := c.CreateTeam(ctx, "Backend"); return err }, "POST", "/api/v1/teams", `"name":"Backend"`},
+		{"team delete", func(c *Client) error { return c.DeleteTeam(ctx, "t1") }, "DELETE", "/api/v1/teams/t1", ""},
+		{"team member add", func(c *Client) error { return c.SetTeamMember(ctx, "t1", "u1", true) }, "PUT", "/api/v1/teams/t1/members/u1", ""},
+		{"team member remove", func(c *Client) error { return c.SetTeamMember(ctx, "t1", "u1", false) }, "DELETE", "/api/v1/teams/t1/members/u1", ""},
+		{"team project grant", func(c *Client) error { return c.SetTeamProject(ctx, "t1", "p1", "editor") }, "PUT", "/api/v1/projects/p1/teams/t1", `"role":"editor"`},
+		{"team project revoke", func(c *Client) error { return c.SetTeamProject(ctx, "t1", "p1", "") }, "DELETE", "/api/v1/projects/p1/teams/t1", ""},
 		{"env set", func(c *Client) error { return c.SetDeploymentEnv(ctx, "p1", "web", map[string]string{"A": "b"}) }, "POST", "/api/v1/projects/p1/deployments/web/env", `"A":"b"`},
 		{"events", func(c *Client) error { _, err := c.ListDeploymentEvents(ctx, "p1", "web", 5); return err }, "GET", "/api/v1/projects/p1/deployments/web/events?limit=5", ""},
 		{"metrics", func(c *Client) error { _, err := c.GetDeploymentMetrics(ctx, "p1", "web", "6h"); return err }, "GET", "/api/v1/projects/p1/deployments/web/metrics?range=6h", ""},
@@ -159,5 +170,16 @@ func TestJSONRoundTrip_CreateDeploymentRequestOmitsWhatIsEmpty(t *testing.T) {
 		if strings.Contains(string(b), absent) {
 			t.Errorf("%s must be omitted when empty: %s", absent, b)
 		}
+	}
+}
+
+func TestListTeams_ReadsTheWrappedList(t *testing.T) {
+	c, got := serve(t, 200, `{"teams":[{"id":"t1","name":"Backend","members":[{"principal_id":"u1","email":"a@example.test"}],"projects":[{"project_id":"p1","project_name":"shop","role":"viewer"}]}]}`)
+	teams, err := c.ListTeams(context.Background())
+	if err != nil || len(teams) != 1 || teams[0].Name != "Backend" || teams[0].Projects[0].Role != "viewer" {
+		t.Fatalf("teams = %+v, %v", teams, err)
+	}
+	if r := (*got)[0]; r.method != "GET" || r.path != "/api/v1/teams" {
+		t.Errorf("%s %s", r.method, r.path)
 	}
 }

@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Infra-Heroes/heroctl/internal/client"
 )
 
 // heroctl ci github writes the workflow files that deploy a repository with the
@@ -159,7 +161,13 @@ The workflows read a deploy token from the repository secret HERO_TOKEN:
 
 			if setSecret {
 				name := "github-" + tokenNameSafe(filepath.Base(mustAbs(".")))
-				pat, err := deps.Client.CreatePAT(ctx, name, "deploy")
+				// Held to this project: a leaked repository secret then reaches
+				// no other project of the organisation.
+				opts := client.PATOptions{}
+				if p, err := resolveProject(ctx, deps, project); err == nil {
+					opts.ProjectID = p.ID
+				}
+				pat, err := deps.Client.CreatePAT(ctx, name, "deploy", opts)
 				if err != nil {
 					return fmt.Errorf("create token: %w", err)
 				}
@@ -168,10 +176,10 @@ The workflows read a deploy token from the repository secret HERO_TOKEN:
 						"The token %q (%s) was created; set it yourself or delete it with: heroctl tokens delete %s",
 						err, pat.Name, pat.ID, pat.ID)
 				}
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created the deploy token %q and set the repository secret HERO_TOKEN.\n", pat.Name)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created the deploy token %q for project %s and set the repository secret HERO_TOKEN.\n", pat.Name, project)
 			} else {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nNext: give the workflow a deploy token as the repository secret HERO_TOKEN:")
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "  heroctl tokens create --name github --scope deploy")
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  heroctl tokens create --name github --scope deploy --project %s\n", project)
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "  gh secret set HERO_TOKEN        (or: repository Settings, Secrets and variables, Actions)")
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Commit and push: the workflow deploys to project %s on every push to %s.\n", project, branch)

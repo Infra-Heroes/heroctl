@@ -20,6 +20,7 @@ func membersCmd(deps *Deps) *cobra.Command {
 		membersRemoveCmd(deps),
 		membersSetRoleCmd(deps),
 		membersInvitationsCmd(deps),
+		membersTransferOwnerCmd(deps),
 	)
 	return cmd
 }
@@ -201,4 +202,46 @@ func invitationNextSteps(inv *client.InvitationCreated) string {
 		return fmt.Sprintf("\nThe invitation was mailed to %s. They accept it with:\n  heroctl accept-invite %s\n", inv.Email, inv.Token)
 	}
 	return fmt.Sprintf("\nNo mail was sent. Share this token with %s. They should run:\n  heroctl accept-invite %s\n", inv.Email, inv.Token)
+}
+
+// resolveMember finds an org member by e-mail address or principal ID.
+func resolveMember(cmd *cobra.Command, deps *Deps, who string) (*client.OrgMember, error) {
+	members, err := deps.Client.ListOrgMembers(cmd.Context())
+	if err != nil {
+		return nil, err
+	}
+	for i := range members {
+		if members[i].PrincipalID == who || strings.EqualFold(members[i].Email, who) {
+			return &members[i], nil
+		}
+	}
+	return nil, fmt.Errorf("%s is not a member of this organisation (heroctl members list)", who)
+}
+
+func membersTransferOwnerCmd(deps *Deps) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "transfer-owner <email|principalID>",
+		Short: "Hand the organisation to another member; you stay on as an admin",
+		Long: "Hand the organisation to another member. Only its owner can, the member must\n" +
+			"already belong to the organisation, and you stay on as an admin. Only the new\n" +
+			"owner can hand it back.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			m, err := resolveMember(cmd, deps, args[0])
+			if err != nil {
+				return err
+			}
+			if !yes {
+				return fmt.Errorf("this hands the organisation to %s; run again with --yes to confirm", m.Email)
+			}
+			if err := deps.Client.TransferOwnership(cmd.Context(), m.PrincipalID); err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s now owns the organisation; you are an admin.\n", m.Email)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm the handover")
+	return cmd
 }

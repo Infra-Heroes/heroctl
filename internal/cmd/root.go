@@ -98,6 +98,7 @@ func newRootCmd() *cobra.Command {
 		domainsCmd(&deps),
 		secretsCmd(&deps),
 		tokensCmd(&deps),
+		teamsCmd(&deps),
 		versionCmd(),
 		validateCmd(),
 		initCmd(),
