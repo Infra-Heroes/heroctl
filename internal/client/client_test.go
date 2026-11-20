@@ -82,6 +82,10 @@ func TestEndpoints_UseTheRightMethodPathAndBody(t *testing.T) {
 		{"metrics", func(c *Client) error { _, err := c.GetDeploymentMetrics(ctx, "p1", "web", "6h"); return err }, "GET", "/api/v1/projects/p1/deployments/web/metrics?range=6h", ""},
 		{"alerts list", func(c *Client) error { _, err := c.ListDeploymentAlerts(ctx, "p1", "web"); return err }, "GET", "/api/v1/projects/p1/deployments/web/alerts", ""},
 		{"alert delete", func(c *Client) error { return c.DeleteDeploymentAlert(ctx, "p1", "web", "a1") }, "DELETE", "/api/v1/projects/p1/deployments/web/alerts/a1", ""},
+		{"exec session", func(c *Client) error {
+			_, err := c.IssueExecSession(ctx, "p1", "web", ExecSessionRequest{PublicKey: "ssh-ed25519 AAAA"})
+			return err
+		}, "POST", "/api/v1/projects/p1/deployments/web/exec-sessions", `"public_key":"ssh-ed25519 AAAA"`},
 		{"audit", func(c *Client) error { _, err := c.ListAudit(ctx, 10, 20); return err }, "GET", "/api/v1/audit?limit=10&offset=20", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -181,5 +185,27 @@ func TestListTeams_ReadsTheWrappedList(t *testing.T) {
 	}
 	if r := (*got)[0]; r.method != "GET" || r.path != "/api/v1/teams" {
 		t.Errorf("%s %s", r.method, r.path)
+	}
+}
+
+func TestIssueExecSession_ConflictListsReplicas(t *testing.T) {
+	c, _ := serve(t, 409, `{"error":"2 replicas are running","replicas":["a1","b2"]}`)
+	_, err := c.IssueExecSession(context.Background(), "p1", "web", ExecSessionRequest{PublicKey: "k"})
+	var rc *ReplicaChoiceError
+	if !errors.As(err, &rc) || len(rc.Replicas) != 2 {
+		t.Fatalf("err = %v, want a ReplicaChoiceError with two replicas", err)
+	}
+	for _, want := range []string{"2 replicas are running", "a1", "b2", "--replica"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message %q lacks %q", err, want)
+		}
+	}
+}
+
+func TestIssueExecSession_ServerMessageIsKeptAsIs(t *testing.T) {
+	c, _ := serve(t, 403, `{"error":"exec needs an interactive login: run \"heroctl login\""}`)
+	_, err := c.IssueExecSession(context.Background(), "p1", "web", ExecSessionRequest{PublicKey: "k"})
+	if err == nil || err.Error() != `exec needs an interactive login: run "heroctl login"` {
+		t.Fatalf("err = %v", err)
 	}
 }

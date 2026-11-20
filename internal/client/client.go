@@ -921,6 +921,46 @@ func (c *Client) AcceptInvitation(ctx context.Context, token string) error {
 	return c.do(ctx, http.MethodPost, "/api/v1/invitations/"+token+"/accept", nil, nil)
 }
 
+// ExecSessionRequest is the body for POST .../deployments/{app}/exec-sessions.
+type ExecSessionRequest struct {
+	PublicKey string `json:"public_key"`
+	Replica   string `json:"replica,omitempty"`
+}
+
+// ExecSession carries everything needed to open one exec connection. Certificate and
+// Ticket are credentials: never print or log them.
+type ExecSession struct {
+	GatewayURL  string `json:"gateway_url"`
+	Ticket      string `json:"ticket"`
+	Certificate string `json:"certificate"`
+	HostKey     string `json:"host_key"`
+	User        string `json:"user"`
+	ExpiresAt   string `json:"expires_at"`
+}
+
+// ReplicaChoiceError is the 409 answer to an exec request when several replicas run and
+// none was chosen.
+type ReplicaChoiceError struct {
+	Message  string
+	Replicas []string
+}
+
+func (e *ReplicaChoiceError) Error() string {
+	return fmt.Sprintf("%s\nrunning replicas:\n  %s\npass one with --replica <id>",
+		e.Message, strings.Join(e.Replicas, "\n  "))
+}
+
+// IssueExecSession asks hero-api for a certificate and a connection ticket for one exec
+// session.
+func (c *Client) IssueExecSession(ctx context.Context, projectID, appName string, req ExecSessionRequest) (*ExecSession, error) {
+	var out ExecSession
+	path := fmt.Sprintf("/api/v1/projects/%s/deployments/%s/exec-sessions", projectID, url.PathEscape(appName))
+	if err := c.do(ctx, http.MethodPost, path, req, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // StreamLogs opens a streaming connection to the logs endpoint and returns the
 // response body. The caller must close it. follow=true tails live output.
 func (c *Client) StreamLogs(ctx context.Context, projectID, appName string, follow bool) (io.ReadCloser, error) {
@@ -1022,8 +1062,12 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 		var errResp struct {
 			Error              string            `json:"error"`
 			DomainVerification []DomainChallenge `json:"domain_verification"`
+			Replicas           []string          `json:"replicas"`
 		}
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
+		if resp.StatusCode == http.StatusConflict && len(errResp.Replicas) > 0 {
+			return &ReplicaChoiceError{Message: errResp.Error, Replicas: errResp.Replicas}
+		}
 		if len(errResp.DomainVerification) > 0 {
 			return &DomainVerificationError{Message: errResp.Error, Pending: errResp.DomainVerification}
 		}
