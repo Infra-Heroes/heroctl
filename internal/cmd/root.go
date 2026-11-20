@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -24,6 +25,10 @@ type Deps struct {
 // Execute is the entry point called from main.
 func Execute() {
 	if err := newRootCmd().Execute(); err != nil {
+		var exit *ExitCodeError
+		if errors.As(err, &exit) {
+			os.Exit(exit.Code)
+		}
 		_, _ = fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
@@ -83,6 +88,8 @@ func newRootCmd() *cobra.Command {
 		orgsCmd(&deps),
 		projectsCmd(&deps),
 		deploymentsCmd(&deps),
+		appExecCmd(&deps),
+		appConsoleCmd(&deps),
 		membersCmd(&deps),
 		auditCmd(&deps),
 		notificationsCmd(&deps),
