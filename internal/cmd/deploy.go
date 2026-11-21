@@ -150,6 +150,11 @@ real one: for the duration of a pull request. See "heroctl preview --help".
 					heroCfg.Labels = make(map[string]string)
 				}
 				heroCfg.Labels["hero-custom-domains"] = strings.Join(heroCfg.App.CustomDomains, ",")
+				for _, d := range heroCfg.App.CustomDomains {
+					if isApex(d) {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s is a bare domain; it cannot be a CNAME to %s. Use a subdomain such as www.%s.\n", d, IngressHost, d)
+					}
+				}
 			}
 
 			// 2. Get org (needed for image namespace).

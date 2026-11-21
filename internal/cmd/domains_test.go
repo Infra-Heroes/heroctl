@@ -80,6 +80,9 @@ func TestVerifyDomainFlagIsSentOnlyWhenSet(t *testing.T) {
 }
 
 func TestDomainsCommands(t *testing.T) {
+	orig := lookupCNAME
+	defer func() { lookupCNAME = orig }()
+	lookupCNAME = func(context.Context, string) (string, error) { return IngressHost, nil }
 	var paths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.Method+" "+r.URL.RequestURI())
@@ -113,5 +116,37 @@ func TestDomainsCommands(t *testing.T) {
 		if !strings.Contains(got, w) {
 			t.Errorf("missing request %q in %s", w, got)
 		}
+	}
+}
+
+func TestCNAMECheckNamesTheProblem(t *testing.T) {
+	orig := lookupCNAME
+	defer func() { lookupCNAME = orig }()
+	for _, c := range []struct{ domain, got, want string }{
+		{"www.example.org", "ingress.infra-heroes.de.", "Good."},
+		{"www.example.org", "ingress.infra-heroes.de.example.org.", "dot at the end"},
+		{"www.example.org", "elsewhere.example.net.", "not at ingress.infra-heroes.de."},
+		{"www.example.org", "", "does not resolve"},
+		{"example.org", "", "cannot be a CNAME"},
+	} {
+		lookupCNAME = func(context.Context, string) (string, error) {
+			if c.got == "" {
+				return "", errors.New("no such host")
+			}
+			return c.got, nil
+		}
+		var b strings.Builder
+		printCNAMECheck(context.Background(), &b, c.domain)
+		if !strings.Contains(b.String(), c.want) {
+			t.Errorf("%s -> %s: %q lacks %q", c.domain, c.got, b.String(), c.want)
+		}
+	}
+}
+
+func TestPrintChallengeShowsTheCNAME(t *testing.T) {
+	var b strings.Builder
+	printChallenge(&b, &client.DomainChallenge{Domain: "www.example.org", Verified: true})
+	if !strings.Contains(b.String(), "CNAME  www.example.org  ingress.infra-heroes.de.") || !strings.Contains(b.String(), "is verified") {
+		t.Errorf("output: %s", b.String())
 	}
 }

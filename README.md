@@ -269,74 +269,69 @@ heroctl logs shop-cleanup --project my-project --since 2h
 
 Each job is a deployment of its own, named `<app>-<job>`. The command goes through `sh -c`, so `cd x && ./run | tee log` works; the job gets the app's environment and secrets. Runs never overlap (a tick is skipped while the last run is still going), a failed run is not retried, and a run that exceeds its `timeout` is stopped. A job removed from `hero.toml` is removed by the next deploy. A preview (`--preview`) does not run the app's jobs.
 
-### 3. Custom Domain (CNAME Setup)
+### 3. Bring your own domain
 
-Run workloads under your own domain name by completing these two steps:
+Run an app under your own domain in three steps. You never enter an IP address.
 
-1. **Configure your Domain DNS Registry:** Add a CNAME record pointing your domain or subdomain to the edge load balancer:
+1. **CNAME at your DNS provider.** Use a subdomain such as `www.example.org`;
+   a bare `example.org` (apex) cannot be a CNAME, and an A record would pin the
+   load balancer's IP, which can change.
+
    ```txt
-   Type: CNAME
-   Name: app (or @)
-   Target: ingress.infra-heroes.de
+   www.example.org   CNAME   ingress.infra-heroes.de.
    ```
 
-2. **Map the Domain in `hero.toml`:** Add the hostname list inside the `[app]` block:
+   Mind the dot at the end. Without it many providers (Hetzner among them)
+   append the zone, and the record becomes
+   `ingress.infra-heroes.de.example.org`. `heroctl domains verify` spots that.
+
+2. **List it in `hero.toml`**, and ask for the ownership proof:
+
    ```toml
    [app]
    name = "my-app"
-   custom_domains = ["app.example.com"]
+   custom_domains = ["www.example.org"]
+   verify_domains = true
    ```
 
-#### How it works under the hood
+3. **TXT record for the proof.** With `verify_domains = true` a deploy waits
+   until every domain carries its record:
 
-When you deploy with `custom_domains`, hero-api appends the domain to the Traefik router rule registered with Consul:
+   ```bash
+   heroctl domains challenge www.example.org --project my-project   # shows CNAME and TXT
+   # _hero-challenge.www.example.org   TXT   hero-verification=<token>
+   heroctl domains verify www.example.org --project my-project      # checks TXT and CNAME now
+   heroctl deploy --project my-project
+   ```
+
+   If a record is missing, the deploy stops and lists the records still to add.
+   Once verified, a domain stays verified for your organisation. Without
+   `verify_domains` a domain is routed without proof, as before.
+
+The same works in hero-platform: in the order form under *Advanced options*,
+*Custom domains* shows the CNAME and the TXT record for each domain and checks
+them before the deploy.
+
+#### Certificates
+
+- Every custom domain gets its own Let's Encrypt certificate, issued and renewed
+  by the platform's Traefik. Let's Encrypt validates over port 443 (TLS-ALPN-01),
+  so the CNAME is all it needs; port 80 plays no part.
+- The TXT record only proves ownership to the platform; Let's Encrypt does not
+  read it.
+- The certificate is requested once the domain is deployed. The first request
+  can take a few seconds or fail once while it is issued; a retry then succeeds.
+- `*.heroapp.run` is covered by a wildcard certificate (DNS-01 against the
+  Hetzner zone).
+- Wildcards such as `*.example.com` are not supported; list each hostname.
+
+#### Under the hood
+
+hero-api appends the domain to the app's Traefik router rule in Consul:
 
 ```
-Host(`my-app.heroapp.run`) || Host(`www.my-app.heroapp.run`) || Host(`app.example.com`)
+Host(`my-app.heroapp.run`) || Host(`www.my-app.heroapp.run`) || Host(`www.example.org`)
 ```
-
-**TLS certificates** are handled by the platform automatically:
-
-- All `*.heroapp.run` subdomains are covered by a wildcard certificate issued by Let's Encrypt via Certbot (DNS-01 challenge against the Hetzner zone). Renewed automatically every 90 days.
-- On each renewal, the certificate is written to `/etc/traefik/certs/wildcard.{crt,key}` on the gateway node and backed up to Consul KV at `traefik/certs/{cert,key}` for recovery across gateway restarts.
-- Traefik loads the certificate from the local file and serves it for all `*.heroapp.run` traffic.
-
-**Custom domains** (e.g. `app.example.com`) get their own Let's Encrypt certificate, issued by the gateway through the HTTP-01 challenge (resolver `letsencrypt-http`). For that to work:
-
-- Point the domain (CNAME or A record) at the platform **before** you deploy, and keep port 80 reachable: Let's Encrypt validates over plain HTTP.
-- The certificate is requested on the first HTTPS request to the domain and renewed automatically. The first request can take a few seconds or fail once while it is issued; a retry then succeeds.
-- A wildcard such as `*.example.com` is not supported; list each hostname in `custom_domains`.
-
-#### DNS propagation
-
-The CNAME must resolve before you deploy. Traefik adds the `Host()` rule immediately on deploy but there is no retry — if DNS does not resolve to the platform IP at that point, HTTP health checks targeting the custom domain will fail and the deployment will be marked unhealthy.
-
-#### Optional: prove you control the domain (TXT record)
-
-By default a custom domain is routed without a proof of ownership, as before. To
-have the platform check that your organisation controls it, set the option in
-`hero.toml`:
-
-```toml
-[app]
-name = "my-app"
-custom_domains = ["shop.example.com"]
-verify_domains = true
-```
-
-A deploy then needs a TXT record for every custom domain:
-
-```bash
-heroctl domains challenge shop.example.com --project my-project   # shows the record
-# add it at your DNS provider:  _hero-challenge.shop.example.com  TXT  hero-verification=<token>
-heroctl domains verify shop.example.com --project my-project      # checks it now
-heroctl deploy --project my-project
-```
-
-If a record is missing the deploy stops and lists the records still to add. Apex and
-`www` are separate domains with their own record. Once verified, a domain stays
-verified for your organisation. Needs a hero-api with domain verification; without
-`verify_domains` nothing changes.
 
 ### 4. Volumes (Ceph Block Storage)
 
