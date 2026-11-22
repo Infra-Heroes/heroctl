@@ -90,6 +90,7 @@ func newRootCmd() *cobra.Command {
 		deploymentsCmd(&deps),
 		appExecCmd(&deps),
 		appConsoleCmd(&deps),
+		sandboxCmd(&deps),
 		membersCmd(&deps),
 		auditCmd(&deps),
 		notificationsCmd(&deps),

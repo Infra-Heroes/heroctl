@@ -206,7 +206,7 @@ func TestConsole_PtyResizeAndRestore(t *testing.T) {
 	var runErr error
 	go func() {
 		defer close(done)
-		code, runErr = exec.Console(context.Background(), c, ft, "xterm-test", strings.NewReader(""), lockedWriter{&out, &outMu})
+		code, runErr = exec.Console(context.Background(), c, ft, "xterm-test", nil, strings.NewReader(""), lockedWriter{&out, &outMu})
 	}()
 
 	<-started
@@ -249,9 +249,25 @@ func TestConsole_RestoresWhenShellFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	ft := newFakeTerm()
-	_, err = exec.Console(context.Background(), c, ft, "xterm", strings.NewReader(""), io.Discard)
+	_, err = exec.Console(context.Background(), c, ft, "xterm", nil, strings.NewReader(""), io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "no shell") {
 		t.Errorf("err = %v, want a hint about images without a shell", err)
+	}
+	if raw, restored := ft.counts(); raw != 1 || restored != 1 {
+		t.Errorf("raw=%d restored=%d, want 1 and 1", raw, restored)
+	}
+}
+
+func TestConsole_RestoresWhenTheCommandFails(t *testing.T) {
+	srv := newServer(t) // no Run handler: the server refuses the exec request
+	c, err := connect(t, srv, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ft := newFakeTerm()
+	_, err = exec.Console(context.Background(), c, ft, "xterm", []string{"tmux", "new"}, strings.NewReader(""), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "start tmux") {
+		t.Errorf("err = %v, want it to name the command", err)
 	}
 	if raw, restored := ft.counts(); raw != 1 || restored != 1 {
 		t.Errorf("raw=%d restored=%d, want 1 and 1", raw, restored)
@@ -276,7 +292,7 @@ func TestConsole_RestoresOnCancel(t *testing.T) {
 	t.Cleanup(func() { _ = pw.Close() })
 	done := make(chan error, 1)
 	go func() {
-		_, err := exec.Console(ctx, c, ft, "xterm", pr, io.Discard)
+		_, err := exec.Console(ctx, c, ft, "xterm", nil, pr, io.Discard)
 		done <- err
 	}()
 	<-started

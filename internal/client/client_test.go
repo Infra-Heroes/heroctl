@@ -53,6 +53,11 @@ func TestEndpoints_UseTheRightMethodPathAndBody(t *testing.T) {
 			_, err := c.CreateDeployment(ctx, "p1", CreateDeploymentRequest{AppName: "web", Image: "i", CPU: 1})
 			return err
 		}, "POST", "/api/v1/projects/p1/deployments", `"app_name":"web"`},
+		{"sandbox create", func(c *Client) error {
+			_, err := c.CreateSandbox(ctx, "p1", CreateSandboxRequest{AppName: "dev"})
+			return err
+		}, "POST", "/api/v1/projects/p1/deployments", `{"kind":"sandbox","app_name":"dev"}`},
+		{"sandbox reset", func(c *Client) error { return c.ResetDeployment(ctx, "p1", "dev") }, "POST", "/api/v1/projects/p1/deployments/dev/reset", ""},
 		{"secret set", func(c *Client) error { return c.SetSecret(ctx, "p1", "K", "v") }, "POST", "/api/v1/projects/p1/secrets", `"key":"K"`},
 		{"secret list", func(c *Client) error { _, err := c.ListSecrets(ctx, "p1"); return err }, "GET", "/api/v1/projects/p1/secrets", ""},
 		{"secret delete", func(c *Client) error { return c.DeleteSecret(ctx, "p1", "K") }, "DELETE", "/api/v1/projects/p1/secrets/K", ""},

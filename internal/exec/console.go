@@ -21,9 +21,10 @@ type Terminal interface {
 	Resizes(ctx context.Context) <-chan struct{}
 }
 
-// Console opens a PTY session with the remote login shell and bridges it to the local
-// terminal. The terminal is restored on every way out. It returns the shell's exit code.
-func Console(ctx context.Context, c *ssh.Client, t Terminal, termName string, stdin io.Reader, stdout io.Writer) (int, error) {
+// Console opens a PTY session and bridges it to the local terminal. With a nil argv it
+// runs the remote login shell; otherwise it runs argv (quoted as Run does) on the PTY. The
+// terminal is restored on every way out. It returns the remote exit code.
+func Console(ctx context.Context, c *ssh.Client, t Terminal, termName string, argv []string, stdin io.Reader, stdout io.Writer) (int, error) {
 	s, err := c.NewSession()
 	if err != nil {
 		return 0, fmt.Errorf("open session: %w", err)
@@ -50,8 +51,12 @@ func Console(ctx context.Context, c *ssh.Client, t Terminal, termName string, st
 	}
 	defer func() { _ = restore() }()
 
-	if err := s.Shell(); err != nil {
-		return 0, fmt.Errorf("start shell (the image may have no shell, use exec instead): %w", err)
+	if argv == nil {
+		if err := s.Shell(); err != nil {
+			return 0, fmt.Errorf("start shell (the image may have no shell, use exec instead): %w", err)
+		}
+	} else if err := s.Start(Quote(argv)); err != nil {
+		return 0, fmt.Errorf("start %s: %w", argv[0], err)
 	}
 	rctx, cancel := context.WithCancel(ctx)
 	defer cancel()

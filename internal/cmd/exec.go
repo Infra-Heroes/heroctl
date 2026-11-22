@@ -54,21 +54,7 @@ command's exit code.
 			if cmd.ArgsLenAtDash() != 1 || len(args) < 2 {
 				return errors.New("usage: heroctl exec <app> --project <project> -- <command> [args...]")
 			}
-			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
-			defer stop()
-			conn, err := connectApp(ctx, deps, project, args[0], replica)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = conn.Close() }()
-			code, err := exec.Run(ctx, conn, args[1:], cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr())
-			if err != nil {
-				return err
-			}
-			if code != 0 {
-				return &ExitCodeError{Code: code}
-			}
-			return nil
+			return runRemote(cmd, deps, project, args[0], replica, args[1:])
 		},
 	}
 	c.Flags().StringVar(&project, "project", "", "Project name (required)")
@@ -88,33 +74,58 @@ working directory. Images without a shell cannot open a console; use exec instea
 ` + execHelpNote,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term, err := openTerminal()
-			if err != nil {
-				return err
-			}
-			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
-			defer stop()
-			conn, err := connectApp(ctx, deps, project, args[0], replica)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = conn.Close() }()
-			termName := os.Getenv("TERM")
-			if termName == "" {
-				termName = "xterm"
-			}
-			code, err := exec.Console(ctx, conn, term, termName, cmd.InOrStdin(), cmd.OutOrStdout())
-			if err != nil {
-				return err
-			}
-			if code != 0 {
-				return &ExitCodeError{Code: code}
-			}
-			return nil
+			return openConsole(cmd, deps, project, args[0], replica, nil)
 		},
 	}
 	c.Flags().StringVar(&project, "project", "", "Project name (required)")
 	c.Flags().StringVar(&replica, "replica", "", "Replica (allocation ID) when several are running")
 	_ = c.MarkFlagRequired("project")
 	return c
+}
+
+// runRemote runs argv in the app and turns the remote exit code into an ExitCodeError.
+func runRemote(cmd *cobra.Command, deps *Deps, project, app, replica string, argv []string) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	conn, err := connectApp(ctx, deps, project, app, replica)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = conn.Close() }()
+	code, err := exec.Run(ctx, conn, argv, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr())
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return &ExitCodeError{Code: code}
+	}
+	return nil
+}
+
+// openConsole opens an interactive session in the app on the local terminal. A nil argv
+// runs the login shell, otherwise argv runs on the PTY.
+func openConsole(cmd *cobra.Command, deps *Deps, project, app, replica string, argv []string) error {
+	term, err := openTerminal()
+	if err != nil {
+		return err
+	}
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	conn, err := connectApp(ctx, deps, project, app, replica)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = conn.Close() }()
+	termName := os.Getenv("TERM")
+	if termName == "" {
+		termName = "xterm"
+	}
+	code, err := exec.Console(ctx, conn, term, termName, argv, cmd.InOrStdin(), cmd.OutOrStdout())
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return &ExitCodeError{Code: code}
+	}
+	return nil
 }
