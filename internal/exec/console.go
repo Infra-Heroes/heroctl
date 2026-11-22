@@ -39,7 +39,9 @@ func Console(ctx context.Context, c *ssh.Client, t Terminal, termName string, ar
 	if err := s.RequestPty(termName, h, w, modes); err != nil {
 		return 0, fmt.Errorf("request pty: %w", err)
 	}
-	s.Stdout = stdout // with a pty the remote side merges stderr into stdout
+	// A pty merges the program's own stderr into stdout, but the guest's errors (such as
+	// "tmux: command not found") arrive on the stderr channel, which ssh would discard.
+	s.Stdout, s.Stderr = stdout, stdout
 	in, err := s.StdinPipe()
 	if err != nil {
 		return 0, fmt.Errorf("open stdin: %w", err)
