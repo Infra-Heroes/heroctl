@@ -274,6 +274,29 @@ func TestConsole_RestoresWhenTheCommandFails(t *testing.T) {
 	}
 }
 
+func TestConsole_ShowsGuestStderr(t *testing.T) {
+	srv := newServer(t)
+	srv.Run = func(argv []string, _ io.Reader, _, stderr io.Writer) (uint32, string) {
+		_, _ = stderr.Write([]byte("tmux: command not found\r\n"))
+		return 127, ""
+	}
+	c, err := connect(t, srv, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	var outMu sync.Mutex
+	code, err := exec.Console(context.Background(), c, newFakeTerm(), "xterm", []string{"tmux", "new"}, strings.NewReader(""), lockedWriter{&out, &outMu})
+	if err != nil || code != 127 {
+		t.Fatalf("code, err = %d, %v", code, err)
+	}
+	outMu.Lock()
+	defer outMu.Unlock()
+	if !strings.Contains(out.String(), "tmux: command not found") {
+		t.Errorf("output = %q", out.String())
+	}
+}
+
 func TestConsole_RestoresOnCancel(t *testing.T) {
 	srv := newServer(t)
 	started := make(chan struct{})

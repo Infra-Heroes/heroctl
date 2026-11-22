@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
@@ -39,7 +40,10 @@ func Console(ctx context.Context, c *ssh.Client, t Terminal, termName string, ar
 	if err := s.RequestPty(termName, h, w, modes); err != nil {
 		return 0, fmt.Errorf("request pty: %w", err)
 	}
-	s.Stdout = stdout // with a pty the remote side merges stderr into stdout
+	// A pty merges the program's own stderr into stdout, but the guest's errors (such as
+	// "tmux: command not found") arrive on the stderr channel, which ssh would discard.
+	out := &lockedWriter{w: stdout}
+	s.Stdout, s.Stderr = out, out
 	in, err := s.StdinPipe()
 	if err != nil {
 		return 0, fmt.Errorf("open stdin: %w", err)
@@ -72,6 +76,19 @@ func Console(ctx context.Context, c *ssh.Client, t Terminal, termName string, ar
 		_ = in.Close()
 	}()
 	return wait(ctx, s)
+}
+
+// lockedWriter serialises the stdout and stderr copies into one writer. It has no ReadFrom,
+// so io.Copy goes through Write and a writer such as bytes.Buffer is not read from twice.
+type lockedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
 }
 
 // stdTerminal is the process's own terminal.
