@@ -162,6 +162,7 @@ type Deployment struct {
 	ID           string            `json:"id"`
 	ProjectID    string            `json:"project_id"`
 	AppName      string            `json:"app_name"`
+	Kind         string            `json:"kind,omitempty"` // "sandbox" or "app"
 	Image        string            `json:"image"`
 	Status       string            `json:"status"`
 	CPU          int32             `json:"cpu"`
@@ -436,6 +437,34 @@ func (c *Client) CreateDeployment(ctx context.Context, projectID string, req Cre
 	return &out, c.do(ctx, http.MethodPost,
 		"/api/v1/projects/"+projectID+"/deployments",
 		req, &out)
+}
+
+// CreateSandboxRequest is the body for creating a sandbox. Unset sizes are omitted so
+// the server applies its defaults.
+type CreateSandboxRequest struct {
+	AppName  string            `json:"app_name"`
+	CPU      int               `json:"cpu,omitempty"`
+	MemoryMB int               `json:"memory_mb,omitempty"`
+	DiskGB   int               `json:"disk_gb,omitempty"`
+	Env      map[string]string `json:"env,omitempty"`
+}
+
+// CreateSandbox creates a deployment of kind sandbox.
+func (c *Client) CreateSandbox(ctx context.Context, projectID string, req CreateSandboxRequest) (*DeploymentCreated, error) {
+	var out DeploymentCreated
+	return &out, c.do(ctx, http.MethodPost,
+		"/api/v1/projects/"+projectID+"/deployments",
+		struct {
+			Kind string `json:"kind"`
+			CreateSandboxRequest
+		}{"sandbox", req}, &out)
+}
+
+// ResetDeployment re-creates a stopped sandbox's root disk from the current base image.
+func (c *Client) ResetDeployment(ctx context.Context, projectID, appName string) error {
+	return c.do(ctx, http.MethodPost,
+		"/api/v1/projects/"+projectID+"/deployments/"+appName+"/reset",
+		nil, nil)
 }
 
 // StopDeployment stops the active deployment for the named app within a project.

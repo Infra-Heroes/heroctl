@@ -72,6 +72,10 @@ func TestNeedsAuth(t *testing.T) {
 		{"members", "list"},
 		{"exec"},
 		{"console"},
+		{"sandbox"},
+		{"sandbox", "create"},
+		{"sandbox", "console"},
+		{"sandbox", "exec"},
 	}
 	for _, path := range guarded {
 		t.Run("guarded/"+strings.Join(path, " "), func(t *testing.T) {

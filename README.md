@@ -440,6 +440,29 @@ Good to know:
 
 The platform's internal DNS (`<app>.svc.platform`, with `search svc.platform` set in every VM) resolves service names to private VXLAN IPs, which keeps tenants apart.
 
+### 8. Sandboxes
+
+A sandbox is a persistent Linux VM (Debian with tmux, git, curl and build tools; user `hero` with sudo) that you work in. It is a deployment of its own kind: it is billed, started and stopped like any other.
+
+```bash
+heroctl sandbox create dev --project my-project                  # 1 vCPU, 2048 MB, 20 GB by default
+heroctl sandbox create dev --project my-project --cpu 4 --memory 8192 --disk 50 --secret GH_TOKEN
+heroctl sandbox list --project my-project
+heroctl sandbox console dev --project my-project                 # attaches to tmux session "main"
+heroctl sandbox console dev --project my-project --raw           # plain shell, no tmux
+heroctl sandbox exec dev --project my-project -- git --version
+heroctl sandbox stop dev --project my-project
+heroctl sandbox start dev --project my-project
+heroctl sandbox reset dev --project my-project                   # stopped only: fresh base image, files lost
+heroctl sandbox delete dev --project my-project                  # asks first; --yes to skip
+```
+
+Everything on your sandbox's filesystem survives stop, start, restarts and host moves until you `reset` or `delete` the sandbox. Running processes do not survive a stop or a host failure. A hardware failure can lose only the last seconds of unflushed writes. If your balance stays exhausted for 30 days, the sandbox and its data are deleted; the debt remains. During the trial the storage behind a sandbox has a single replica.
+
+- Each `--secret KEY` puts the project secret `KEY` (see Secrets) into the sandbox's environment.
+- The console attaches to a persistent tmux session, so laptop sleep, network loss and session limits do not end your work: reconnect and you are back in it.
+- Console and exec need an interactive `heroctl login`; a personal access token is refused.
+
 ---
 
 ## 💻 Developer Guide
