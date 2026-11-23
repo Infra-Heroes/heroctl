@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -161,5 +162,14 @@ func TestRefresh(t *testing.T) {
 	})
 	if _, err := Refresh(context.Background(), rejected, "c", "x"); err == nil || !strings.Contains(err.Error(), "revoked") {
 		t.Errorf("a revoked refresh token: %v", err)
+	}
+}
+
+func TestRefreshWithoutBuildSettingsSaysWhy(t *testing.T) {
+	for _, c := range []struct{ domain, client string }{{"", "c"}, {"auth.example.com", ""}} {
+		_, err := Refresh(context.Background(), c.domain, c.client, "r")
+		if !errors.Is(err, ErrUnconfiguredBuild) {
+			t.Errorf("Refresh(%q, %q) = %v, want ErrUnconfiguredBuild", c.domain, c.client, err)
+		}
 	}
 }
