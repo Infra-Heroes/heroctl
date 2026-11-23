@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -113,8 +114,19 @@ func PollToken(ctx context.Context, authDomain, clientID, deviceCode string, int
 	}
 }
 
+// ErrUnconfiguredBuild is returned when this binary was built without the
+// auth settings that release builds inject with -ldflags.
+var ErrUnconfiguredBuild = errors.New(
+	"this heroctl was built without AuthDomain and ClientID, so it cannot renew your login; " +
+		"use a release from https://git.infra-heroes.de/InfraHeroes/heroctl/releases or build with \"make build\" and CLIENT_ID set")
+
 // Refresh exchanges a refresh token for a new access token.
 func Refresh(ctx context.Context, authDomain, clientID, refreshToken string) (*Token, error) {
+	// Without these the request went to "https:///oauth/v2/token" and failed
+	// with "no Host in request URL", which named neither cause nor remedy.
+	if authDomain == "" || clientID == "" {
+		return nil, ErrUnconfiguredBuild
+	}
 	endpoint := fmt.Sprintf("https://%s/oauth/v2/token", authDomain)
 	tr, err := postToken(ctx, endpoint, url.Values{
 		"grant_type":    {"refresh_token"},
